@@ -145,15 +145,16 @@ if __name__ == "__main__":
     # read(Register.ACTUAL_ACCELERATION_TIME)
     # read(Register.ACTUAL_DECCELERATION_TIME)
     # read_motor_status(2)
+    # write(Register.ENABLE_STEPPER)
 
     # threading.Thread(target=read_motor_status, args=(10,)).start()
     # write(Register.ENABLE_STEPPER)
     # write(Register.OPERATION_MODE, OperationMode.VELOCITY)
 
-    write(Register.ACEL_TIME, int(2 * 1000))
-    write(Register.DECEL_TIME, int(2 * 1000))
-    write(Register.TARGET_POSITION, 50 * 200)
-    write(Register.TARGET_RPM, 500)
+    write(Register.ACEL_TIME, int(0.1 * 1000))
+    write(Register.DECEL_TIME, int(0.1 * 1000))
+    write(Register.TARGET_POSITION, round((450 / 360) * 200))
+    write(Register.TARGET_RPM, 300)
 
     write(Register.MOVE)
 

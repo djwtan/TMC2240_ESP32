@@ -10,3 +10,4 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 - Implement inverse time mode
 - Rework return message
 - Document wiring
+- LED status indication

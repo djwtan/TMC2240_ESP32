@@ -85,7 +85,7 @@ def send_serial(message) -> str:
     if ser.in_waiting > 0:
         response = ser.read(ser.in_waiting)  # Read all available data
         decoded_response = response.decode("utf-8")  # Decode the byte data to string using UTF-8
-        print(decoded_response)  # Print the decoded string
+        # print(decoded_response)  # Print the decoded string
 
         return decoded_response
 
@@ -134,6 +134,7 @@ def read_current_rpm(time_s):
 # ======================================= TEST ======================================= #
 if __name__ == "__main__":
     import threading
+    from openpyxl import Workbook
 
     # read(Register.DRV_STATUS)
     # read(Register.OPERATION_MODE)
@@ -150,23 +151,42 @@ if __name__ == "__main__":
     # threading.Thread(target=read_motor_status, args=(10,)).start()
     # write(Register.ENABLE_STEPPER)
     # write(Register.OPERATION_MODE, OperationMode.VELOCITY)
+    # ------------------------------------------------------------------------------------ #
+    wb = Workbook()
 
-    write(Register.ACEL_TIME, int(0.1 * 1000))
-    write(Register.DECEL_TIME, int(0.1 * 1000))
-    write(Register.TARGET_POSITION, round((450 / 360) * 200))
-    write(Register.TARGET_RPM, 300)
-
-    write(Register.MOVE)
-
-    motor_status = None
-    while motor_status != "s0: idle":
-        motor_status = get_motor_status()
-        print(motor_status)
-
-    read(Register.ACTUAL_ACCELERATION_TIME)
-    read(Register.ACTUAL_DECCELERATION_TIME)
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append(["rpm", "acel", "acel_a", "decel", "decel_a"])
 
     # ------------------------------------------------------------------------------------ #
+    write(Register.ACEL_TIME, int(2 * 1000))
+    write(Register.DECEL_TIME, int(2 * 1000))
+
+    rpm = 20
+    while rpm <= 3000:
+        print("run {}".format(rpm))
+        write(Register.TARGET_POSITION, round(15 * 200 if rpm < 500 else 70 * 200))
+        write(Register.TARGET_RPM, rpm)
+
+        write(Register.MOVE)
+
+        motor_status = None
+        while motor_status != "idle":
+            motor_status = get_motor_status()
+            # print(motor_status)
+
+        acel_actual = read(Register.ACTUAL_ACCELERATION_TIME)
+        decel_actual = read(Register.ACTUAL_DECCELERATION_TIME)
+
+        ws.append([rpm, 2000000, acel_actual, 2000000, decel_actual])
+        print("({}) Acel: {}/2000000   Decel: {}/2000000".format(rpm, acel_actual, decel_actual))
+
+        rpm += 10
+
+    file_name = "rpm_acel_decel_time_corrected_2.xlsx"
+    wb.save(file_name)
+    # ------------------------------------------------------------------------------------ #
+
     # clear_serial_buffer()
     # read_serial()
     # write(Register.EMERGENCY_STOP)

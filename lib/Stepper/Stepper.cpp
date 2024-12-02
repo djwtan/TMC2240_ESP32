@@ -79,7 +79,6 @@ void Stepper::Initialize(bool *result) {
 /*                                        READ                                        */
 /* ================================================================================== */
 String Stepper::HandleRead(uint8_t reg) {
-  noInterrupts();
   String result;
 
   switch (reg) {
@@ -135,8 +134,8 @@ String Stepper::HandleRead(uint8_t reg) {
     result = INVALID_REGISTER;
   }
 
-  interrupts();
-  return _GenerateMessage() + result;
+  return result;
+  // return _GenerateMessage() + result;
 }
 
 float Stepper::ReadTemperature() {
@@ -215,7 +214,8 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   default:
     result = INVALID_REGISTER;
   }
-  return _GenerateMessage() + result;
+  return result;
+  // return _GenerateMessage() + result;
 }
 
 String Stepper::WriteTargetPosition(int32_t pos) {
@@ -435,6 +435,8 @@ void Stepper::_ComputeDeccelerationParameters(float vmax) {
   // FIXME: No idea why timeDecel_ms needs to be divided by 4 instead of 2
   sDecel = timeDecel_ms > 0 ? ((vmax + minRPM) * timeDecel_ms / 4) / (60.0 * 1e6) * (200 * m_motorConfig.MICROSTEP) : 0;
 
+  sDecel = decelStepCorrection(sDecel, targetRPM);
+
   /* ============================ Parameter (Displacement) ============================ */
   // nDecel = 2 * (vmax - minRPM) / (double)(pow(sDecel, 2));
 
@@ -494,7 +496,8 @@ unsigned long Stepper::ComputeTimePeriod() {
       if (sAbs < (sTotal - sDecel)) {
         /* =============================== Acceleration Phase =============================== */
         if (sAbs < sAcel) {
-          if (sAbs <= sAcel / 2) {
+          // if (sAbs <= sAcel / 2) {
+          if (_dt <= timeDecel_ms / 2) {
             currentRPM = acelerating ? curveP1(nAcel, _dt, _max(minRPM, v_0)) : curveP2(nAcel, _dt, v_0);
           } else {
             long dS = _abs(_dt - timeAcel_ms);

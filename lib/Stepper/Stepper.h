@@ -89,12 +89,13 @@ private:
   const float minRPMSlow{10.0f}; // !guess
   const float minRPMFast{10.0f}; // !guess
   const float RPMThresh{150.0f};
-  const int32_t DUMMY_POSITIVE{50000000};
-  const int32_t DUMMY_NEGATIVE{-50000000};
+  const int32_t DUMMY_POSITIVE{500000};
+  const int32_t DUMMY_NEGATIVE{-500000};
 
   // Set
   int32_t targetPOS{0};
   float targetRPM{0};
+  float targetRPM_Hold{0};
   double timeAcel_ms{2 * 1000000UL};
   double timeDecel_ms{2 * 1000000UL};
   bool stopOnStall{false};
@@ -116,7 +117,6 @@ private:
   // Movement
   void _ComputeAccelerationParameters(float v0);
   void _ComputeDeccelerationParameters(float vmax);
-  void _ComputeShortDeccelerationParameters(float vmax, uint32_t remainingSteps);
 
   // Driven
   volatile int32_t currentPOS{0};

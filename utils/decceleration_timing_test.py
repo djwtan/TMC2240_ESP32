@@ -1,6 +1,11 @@
 import threading
 from comm import *
 
+# =================================== TEST SETTINGS ================================== #
+acceleration_time = 1
+decceleration_time = 1
+microstepping = 32
+
 if __name__ == "__main__":
     from openpyxl import Workbook
 
@@ -8,18 +13,25 @@ if __name__ == "__main__":
 
     ws = wb.active
     ws.title = "Sheet1"
-    ws.append(["rpm", "acel", "acel_a", "decel", "decel_a"])
+    ws.append(
+        [
+            "rpm",
+            "acel",
+            "acel_a",
+            "decel",
+            "decel_a",
+        ]
+    )
 
     # ------------------------------------------------------------------------------------ #
-    write(Register.ACEL_TIME, int(1 * 1000))
-    write(Register.DECEL_TIME, int(1 * 1000))
+    write(Register.ACEL_TIME, int(acceleration_time * 1000))
+    write(Register.DECEL_TIME, int(decceleration_time * 1000))
 
     rpm = 400
     while rpm <= 3000:
         print("run {}".format(rpm))
-        write(Register.TARGET_POSITION, round(30 * 200 if rpm < 500 else 70 * 200))
+        write(Register.TARGET_POSITION, round(30 * 200 * microstepping if rpm < 500 else 70 * 200 * microstepping))
         write(Register.TARGET_RPM, rpm)
-
         write(Register.MOVE)
 
         motor_status = None
@@ -30,10 +42,26 @@ if __name__ == "__main__":
         acel_actual = read(Register.ACTUAL_ACCELERATION_TIME)
         decel_actual = read(Register.ACTUAL_DECCELERATION_TIME)
 
-        ws.append([rpm, 4000000, acel_actual, 4000000, decel_actual])
-        print("({}) Acel: {}/4000000   Decel: {}/4000000".format(rpm, acel_actual, decel_actual))
+        ws.append(
+            [
+                rpm,
+                round(acceleration_time * 1e6),
+                acel_actual,
+                round(decceleration_time * 1e6),
+                decel_actual,
+            ]
+        )
+        print(
+            "({}) Acel: {}/{}   Decel: {}/{}".format(
+                rpm,
+                acel_actual,
+                round(acceleration_time * 1e6),
+                decel_actual,
+                round(decceleration_time * 1e6),
+            )
+        )
 
         rpm += 50
 
-    file_name = "rpm_acel_decel_time_corrected_2.xlsx"
+    file_name = "rpm_acel_decel_2_microstepping.xlsx"
     wb.save(file_name)

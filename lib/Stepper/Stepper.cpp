@@ -70,7 +70,6 @@ void Stepper::Initialize(bool *result) {
   } else {
     if (result != nullptr)
       *result = true;
-    // this->_UpdateMotorState(MotorState::IDLE);
     swEN = true;
   };
 }
@@ -235,14 +234,11 @@ String Stepper::WriteTargetPosition(int32_t pos) {
     break;
 
   case OperationMode::VELOCITY:
-    targetPOS = pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
+    targetPOS += pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
     minRPM = minRPMSlow;
   }
 
   return "target position " + String(previousValue) + " -> " + String(targetPOS);
-
-  // targetPOS = pos;
-  // return "pos done";
 }
 
 String Stepper::WriteCurrentPosition(int32_t pos) {
@@ -274,19 +270,18 @@ String Stepper::WriteCurrentPosition(int32_t pos) {
 
 String Stepper::WriteTargetRPM(uint32_t rpm) {
   uint32_t previousValue = targetRPM;
-  targetRPM = rpm;
-  return "target rpm " + String(previousValue) + " -> " + String(targetRPM);
-
-  // targetRPM = rpm;
-  // return "rpm done";
+  targetRPM_Hold = rpm;
+  return "target rpm " + String(previousValue) + " -> " + String(targetRPM_Hold);
 }
 
 String Stepper::Move() {
   //  Parameters
+  targetRPM = targetRPM_Hold;
   s_0 = currentPOS;
+  v_0 = currentRPM;
   sTotal = _abs(targetPOS - s_0);
 
-  this->_ComputeAccelerationParameters(currentRPM);
+  this->_ComputeAccelerationParameters(v_0);
   this->_ComputeDeccelerationParameters(targetRPM);
 
   t_0 = micros();
@@ -305,10 +300,11 @@ String Stepper::EmergencyStop() {
 
 String Stepper::StopVelocity() {
   if ((opMode == OperationMode::VELOCITY)) {
-    if (currentRPM != 0) {
-      this->WriteTargetPosition(targetPOS);
-      this->WriteTargetRPM(minRPMSlow + 1.0);
-      this->Move();
+    if (currentRPM == targetRPM)
+      currentPOS = targetPOS - sDecel;
+    else if (currentRPM != 0) {
+      this->_ComputeDeccelerationParameters(currentRPM);
+      currentPOS = targetPOS - sDecel;
     }
     return "stop received";
   }
@@ -320,7 +316,7 @@ String Stepper::EnableStepper() {
   targetPOS = 0;
   currentPOS = targetPOS;
   this->Initialize();
-  // this->_UpdateMotorState(MotorState::IDLE);
+
   digitalWrite(m_pinConfig.EN_PIN, LOW); // enable axis
   swEN = true;
 
@@ -384,7 +380,10 @@ void Stepper::Run() {
     currentPOS += (direction ? 1 : -1);
     break;
   case OperationMode::VELOCITY:
-    currentPOS += sAbs >= sAcel ? 0 : (direction ? 1 : -1);
+    if (sAbs >= sAcel && sAbs < sTotal - sDecel)
+      currentPOS += 0;
+    else
+      currentPOS += (direction ? 1 : -1);
     break;
   }
 }
@@ -437,38 +436,33 @@ void Stepper::_ComputeDeccelerationParameters(float vmax) {
 
   sDecel = decelStepCorrection(sDecel, targetRPM);
 
-  /* ============================ Parameter (Displacement) ============================ */
-  // nDecel = 2 * (vmax - minRPM) / (double)(pow(sDecel, 2));
-
-  /* ================================ Parameter (Time) ================================ */
-  // nDecel = 2 * (vmax - minRPM) / (double)(pow(timeDecel_ms, 2));
-
   /* =============================== Parameter (Linear) =============================== */
   mDecel = (float)(targetRPM - minRPM) / sDecel;
-}
-
-void Stepper::_ComputeShortDeccelerationParameters(float vmax, uint32_t sRemaining) {
-  /* ============================ Parameter (Displacement) ============================ */
-  // nDecel = 2 * (vmax - minRPM) / (double)(pow(sRemaining, 2));
 }
 
 unsigned long Stepper::ComputeTimePeriod() {
 
   /* ====================================== Move? ===================================== */
   if (currentPOS == targetPOS) {
-    this->_UpdateMotorState(MotorState::IDLE);
     currentRPM = 0;
-    return 0;
+
+    // Reset to 0 on velocity mode
+    if (opMode == OperationMode::VELOCITY) {
+      currentPOS = 0;
+      targetPOS = 0;
+    }
 
     uint8_t status;
     status = this->ReadStatus();
 
     if (status == 0 || status == 255) {
-      this->EmergencyStop();
       this->_UpdateMotorState(MotorState::POWER_ERR);
-    }
+    } else
+      this->_UpdateMotorState(MotorState::IDLE);
+    return 0;
 
   } else {
+
     /* =============================== Update Motor State =============================== */
     if (this->_IsStalled()) {
       if (stopOnStall)
@@ -516,14 +510,6 @@ unsigned long Stepper::ComputeTimePeriod() {
         long _dt_decel = timeNow - tDecel_0;
         long sAbs_decel = sAbs - (sTotal - sDecel);
 
-        /* ===================================== S-Curve ==================================== */
-        // if (sAbs_decel <= sDecel / 2) {
-        //   currentRPM = curveP2(nDecel, sAbs_decel, targetRPM);
-        // } else {
-        //   long dS = _abs(sAbs_decel - sDecel);
-        //   currentRPM = curveP1(nDecel, dS, minRPM);
-        // }
-
         /* =================================== Y = -mx + c =================================== */
         currentRPM = targetRPM - mDecel * sAbs_decel;
 
@@ -554,22 +540,11 @@ unsigned long Stepper::ComputeTimePeriod() {
         /* ================================== Decceleration ================================= */
         if (recomputeParam) {
           sDecelRecomputed = sTotal - sAbs;
-          // this->_ComputeShortDeccelerationParameters(RPMPeak, sDecelRecomputed);
           mDecel = (float)(RPMPeak - minRPM) / sDecelRecomputed;
           recomputeParam = false;
         }
         long sAbs_decel = sDecelRecomputed - sTotal + sAbs;
 
-        /* ===================================== S-Curve ==================================== */
-
-        // if (sAbs_decel <= sDecelRecomputed / 2) {
-        //   currentRPM = curveP2(nDecel, sAbs_decel, RPMPeak);
-        // } else {
-        //   long dS = sAbs_decel - sDecelRecomputed;
-        //   currentRPM = curveP1(nDecel, dS, minRPM);
-        // }
-
-        // Serial.println(currentRPM);
         /* =================================== Y = -mx + c =================================== */
         currentRPM = RPMPeak - mDecel * sAbs_decel;
 

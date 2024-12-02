@@ -5,7 +5,7 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 # TODO
 
 - ~~Relationship of decceleration time drift with target RPM~~
-- Expose stall thresholds
+- ~~Expose stall thresholds~~ (_not required_)
 - ~~Implement velocity mode~~
 - Implement inverse time mode
 - Rework return message
@@ -13,4 +13,4 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 - LED status indication
 - Torque Current
 - Document Max RPM by microstepping
-- Detect driver disconnection error
+- Detect driver disconnection error _(2-12-2024 - Currently detected as a "stall" event)_

@@ -159,13 +159,13 @@ if __name__ == "__main__":
     ws.append(["rpm", "acel", "acel_a", "decel", "decel_a"])
 
     # ------------------------------------------------------------------------------------ #
-    write(Register.ACEL_TIME, int(2 * 1000))
-    write(Register.DECEL_TIME, int(2 * 1000))
+    write(Register.ACEL_TIME, int(4 * 1000))
+    write(Register.DECEL_TIME, int(4 * 1000))
 
-    rpm = 20
+    rpm = 400
     while rpm <= 3000:
         print("run {}".format(rpm))
-        write(Register.TARGET_POSITION, round(15 * 200 if rpm < 500 else 70 * 200))
+        write(Register.TARGET_POSITION, round(30 * 200 if rpm < 500 else 70 * 200))
         write(Register.TARGET_RPM, rpm)
 
         write(Register.MOVE)
@@ -178,10 +178,10 @@ if __name__ == "__main__":
         acel_actual = read(Register.ACTUAL_ACCELERATION_TIME)
         decel_actual = read(Register.ACTUAL_DECCELERATION_TIME)
 
-        ws.append([rpm, 2000000, acel_actual, 2000000, decel_actual])
-        print("({}) Acel: {}/2000000   Decel: {}/2000000".format(rpm, acel_actual, decel_actual))
+        ws.append([rpm, 4000000, acel_actual, 4000000, decel_actual])
+        print("({}) Acel: {}/4000000   Decel: {}/4000000".format(rpm, acel_actual, decel_actual))
 
-        rpm += 10
+        rpm += 50
 
     file_name = "rpm_acel_decel_time_corrected_2.xlsx"
     wb.save(file_name)

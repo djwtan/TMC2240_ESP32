@@ -14,7 +14,7 @@ inline double decelStepCorrection(uint32_t s, float rpm) {
   /* ================================ Correction by RPM =============================== */
   float c2;
 
-  if (rpm < 500)
+  if (rpm < 350)
     c2 = 2e-9 * pow(rpm, 3) - 3e-6 * pow(rpm, 2) + 0.0011 * rpm - 0.1728;
   else if (rpm > 550)
     c2 = -6e-5 * rpm + 0.0213;

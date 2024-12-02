@@ -54,21 +54,21 @@ inline String get_MotorState(MotorState mState) {
 };
 
 // DRIVER
-enum class OperationMode {
+enum class OpMode {
   POSITION,
   VELOCITY,
   INVERSE_TIME,
 };
 
-inline String get_OperationMode(OperationMode opMode) {
+inline String get_OperationMode(OpMode opMode) {
   switch (opMode) {
-  case OperationMode::POSITION:
+  case OpMode::POSITION:
     return "position mode";
     break;
-  case OperationMode::VELOCITY:
+  case OpMode::VELOCITY:
     return "velocity mode";
     break;
-  case OperationMode::INVERSE_TIME:
+  case OpMode::INVERSE_TIME:
     return "inverse time mode";
     break;
   default:
@@ -76,7 +76,7 @@ inline String get_OperationMode(OperationMode opMode) {
   }
 }
 
-enum class Mode_PositionCommand {
+enum class PosCmdMode {
   RELATIVE,
   ABSOLUTE,
 };

@@ -22,6 +22,10 @@
 #define REG_CURRENT_POS 0x0D
 #define REG_ACTUAL_ACCELERATION_TIME 0x0E
 #define REG_ACTUAL_DECCELERATION_TIME 0x0F
+#define REG_STOP_ON_STALL 0x10
+#define REG_MICROSTEPPING 0x11
+#define REG_RUNNING_CURRENT 0x12
+#define REG_HOLDING_CURRENT_PERCENTAGE 0x13
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -30,20 +34,13 @@ struct PinConfig {
   uint8_t CS_PIN;
 };
 
-struct MotorConfig {
-  uint8_t MICROSTEP = 128; // default=1
-  uint8_t RUNNING_CURRENT = 31;
-  uint8_t HOLDING_CURRENT = 16;
-};
-
 class Stepper {
 public:
   Stepper(uint8_t id);
   // set
   void ConfigurePin(PinConfig pin);
-  void ConfigureMotor(MotorConfig mconfig);
   void Initialize(bool *result = nullptr);
-  void SetPositionMode(Mode_PositionCommand posMode); // TODO
+  void SetPositionMode(PosCmdMode posCmdMode); // TODO
 
   // read
   String HandleRead(uint8_t reg);
@@ -57,12 +54,16 @@ public:
   String WriteTargetRPM(uint32_t rpm);
   String Move();
   String EmergencyStop();
-  String StopVelocity(); // TODO: Redo for velocity mode only
+  String StopVelocity();
   String EnableStepper();
   String SetOperationMode(uint32_t mode);
   String SetAccelerationTime(uint32_t millis);
   String SetDeccelerationTime(uint32_t millis);
   String WriteCurrentPosition(int32_t pos);
+  String SetStopOnStall(uint32_t userInput);
+  String SetMicrostepping(uint32_t userInput);
+  String SetRunningCurrent(uint32_t userInput);
+  String SetHoldingCurrentPercentage(uint32_t userInput);
 
   // action
   void ReleaseAxis();
@@ -73,27 +74,29 @@ public:
 private:
   uint8_t pri_id;
   PinConfig m_pinConfig;
-  MotorConfig m_motorConfig;
   SPISettings spiSettings;
 
   // Operation
-  bool swEN{false};
-  OperationMode opMode{OperationMode::POSITION};
-  Mode_PositionCommand posMode{Mode_PositionCommand::RELATIVE};
+  bool enabled{false};
+  OpMode opMode{OpMode::POSITION};
+  PosCmdMode posCmdMode{PosCmdMode::RELATIVE};
 
   // Return
   String _GenerateMessage();
 
   // Default
-  const float maxRPM{240.0f};
-  const float minRPMSlow{10.0f}; // !guess
-  const float minRPMFast{10.0f}; // !guess
-  const float RPMThresh{150.0f};
+  const float MAX_RPM{2400.0f};
   const int32_t DUMMY_POSITIVE{500000};
   const int32_t DUMMY_NEGATIVE{-500000};
 
   // Set
+  uint8_t microstep = 4;
+  uint8_t runningCurrent = 31;
+  uint8_t holdingCurrentPercentage = 50;
+  uint8_t holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+
   int32_t targetPOS{0};
+  int32_t targetPOSHold{0};
   float targetRPM{0};
   float targetRPM_Hold{0};
   double timeAcel_ms{2 * 1000000UL};
@@ -115,7 +118,7 @@ private:
   bool _IsStalled();
 
   // Movement
-  void _ComputeAccelerationParameters(float v0);
+  void _ComputeAccelerationParameters();
   void _ComputeDeccelerationParameters(float vmax);
 
   // Driven
@@ -123,7 +126,7 @@ private:
   bool _step{true};
 
   float currentRPM{0.0f};
-  float RPMPeak{0.0f};
+  float peakRPM{0.0f};
   bool direction{true};
   bool acelerating{false};
   float minRPM{10.0f};
@@ -132,10 +135,7 @@ private:
   uint32_t sAbs{0};
 
   // calculation
-  unsigned long dt{0};
   bool recomputeParam{false};
-  bool motionInited{false};
-
   unsigned long t_0{0UL};
   unsigned long tDecel_0{0UL};
   int32_t s_0{0};
@@ -143,10 +143,8 @@ private:
   uint32_t sTotal{0};
   double nAcel{0.0};
   uint32_t sAcel{0};
-  double nDecel{0};
-  uint32_t sDecel{0};
   float mDecel{0.0f};
-
+  uint32_t sDecel{0};
   uint32_t sDecelRecomputed{0};
 
   // Driver Comm

@@ -15,15 +15,13 @@ void Stepper::ConfigurePin(PinConfig pin) {
   digitalWrite(m_pinConfig.CS_PIN, HIGH);
 }
 
-void Stepper::ConfigureMotor(MotorConfig mconfig) { m_motorConfig = mconfig; }
-
 void Stepper::Initialize(bool *result) {
   uint32_t ms;
   const uint8_t MRES_BIT = 24;
 
   this->_RegWrite(0x6C, 0x00000000 | (ms << MRES_BIT) | 0x00); // disable driver
 
-  switch (m_motorConfig.MICROSTEP) {
+  switch (microstep) {
   case 128:
     ms = 0x1;
     break;
@@ -57,8 +55,7 @@ void Stepper::Initialize(bool *result) {
   this->_RegWrite(0x6C, 0x30410150 | (ms << MRES_BIT) | Toff);
 
   // Setting running & ing current...
-  this->_RegWrite(0x10, 0x00060000 | ((uint32_t)(m_motorConfig.RUNNING_CURRENT & 0x1F) << 8) |
-                            ((uint32_t)m_motorConfig.HOLDING_CURRENT & 0x1F));
+  this->_RegWrite(0x10, 0x00060000 | ((uint32_t)(runningCurrent & 0x1F) << 8) | ((uint32_t)holdingCurrent & 0x1F));
 
   uint32_t data;
   uint8_t status;
@@ -67,10 +64,11 @@ void Stepper::Initialize(bool *result) {
   if ((data & 0x0000000F) != Toff) {
     if (result != nullptr)
       *result = false;
+    enabled = false;
   } else {
     if (result != nullptr)
       *result = true;
-    swEN = true;
+    enabled = true;
   };
 }
 
@@ -128,6 +126,18 @@ String Stepper::HandleRead(uint8_t reg) {
     break;
   case REG_ACTUAL_DECCELERATION_TIME:
     result = String(actualDecelTime);
+    break;
+  case REG_STOP_ON_STALL:
+    result = stopOnStall ? "stopOnStall is true" : "stopOnStall is false";
+    break;
+  case REG_MICROSTEPPING:
+    result = String(microstep);
+    break;
+  case REG_RUNNING_CURRENT:
+    result = String(runningCurrent);
+    break;
+  case REG_HOLDING_CURRENT_PERCENTAGE:
+    result = String(holdingCurrentPercentage);
     break;
   default:
     result = INVALID_REGISTER;
@@ -210,6 +220,18 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   case REG_ACTUAL_DECCELERATION_TIME:
     result = NO_WRITE_REGISTER;
     break;
+  case REG_STOP_ON_STALL:
+    result = this->SetStopOnStall(data);
+    break;
+  case REG_MICROSTEPPING:
+    result = this->SetMicrostepping(data);
+    break;
+  case REG_RUNNING_CURRENT:
+    result = this->SetRunningCurrent(data);
+    break;
+  case REG_HOLDING_CURRENT_PERCENTAGE:
+    result = this->SetHoldingCurrentPercentage(data);
+    break;
   default:
     result = INVALID_REGISTER;
   }
@@ -221,43 +243,41 @@ String Stepper::WriteTargetPosition(int32_t pos) {
   uint32_t previousValue = targetPOS;
 
   switch (opMode) {
-  case OperationMode::POSITION:
-    switch (posMode) {
-    case Mode_PositionCommand::ABSOLUTE:
-      targetPOS = pos;
+  case OpMode::POSITION:
+    switch (posCmdMode) {
+    case PosCmdMode::ABSOLUTE:
+      targetPOSHold = pos;
       break;
-    case Mode_PositionCommand::RELATIVE:
-      targetPOS = currentPOS + pos;
+    case PosCmdMode::RELATIVE:
+      targetPOSHold = currentPOS + pos;
       break;
     }
-    minRPM = (targetRPM > RPMThresh) ? minRPMFast : minRPMSlow; // min RPM corrector
     break;
 
-  case OperationMode::VELOCITY:
-    targetPOS += pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
-    minRPM = minRPMSlow;
+  case OpMode::VELOCITY:
+    targetPOSHold += pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
   }
 
-  return "target position " + String(previousValue) + " -> " + String(targetPOS);
+  return "target position " + String(previousValue) + " -> " + String(targetPOSHold);
 }
 
 String Stepper::WriteCurrentPosition(int32_t pos) {
-  // uint32_t previousValue = targetPOS;
+  uint32_t previousValue = currentPOS;
 
   // switch (opMode) {
-  // case OperationMode::POSITION:
-  //   switch (posMode) {
-  //   case Mode_PositionCommand::ABSOLUTE:
+  // case OpMode::POSITION:
+  //   switch (posCmdMode) {
+  //   case PosCmdMode::ABSOLUTE:
   //     targetPOS = pos;
   //     break;
-  //   case Mode_PositionCommand::RELATIVE:
+  //   case PosCmdMode::RELATIVE:
   //     targetPOS = currentPOS + pos;
   //     break;
   //   }
   //   minRPM = (targetRPM > RPMThresh) ? minRPMFast : minRPMSlow; // min RPM corrector
   //   break;
 
-  // case OperationMode::VELOCITY:
+  // case OpMode::VELOCITY:
   //   targetPOS = pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
   //   minRPM = minRPMSlow;
   // }
@@ -275,31 +295,34 @@ String Stepper::WriteTargetRPM(uint32_t rpm) {
 }
 
 String Stepper::Move() {
-  //  Parameters
-  targetRPM = targetRPM_Hold;
-  s_0 = currentPOS;
-  v_0 = currentRPM;
-  sTotal = _abs(targetPOS - s_0);
+  if (enabled) {
+    // Assign Settings
+    targetRPM = targetRPM_Hold;
+    targetPOS = targetPOSHold;
+    s_0 = currentPOS;
+    v_0 = currentRPM;
+    sTotal = _abs(targetPOS - s_0);
 
-  this->_ComputeAccelerationParameters(v_0);
-  this->_ComputeDeccelerationParameters(targetRPM);
+    // Compute Parameters
+    this->_ComputeAccelerationParameters();
+    this->_ComputeDeccelerationParameters(targetRPM);
 
-  t_0 = micros();
-  swEN = true;
+    // Set time
+    t_0 = micros();
 
-  return "Move executed";
+    return "Move executed";
+  }
+  return "enable stepper first";
 }
 
 String Stepper::EmergencyStop() {
   digitalWrite(m_pinConfig.EN_PIN, HIGH); // releases axis
-  swEN = false;
-  targetRPM = 0;
-  currentPOS = 0;
-  return "emergency stop";
+  enabled = false;
+  return "stopped";
 }
 
 String Stepper::StopVelocity() {
-  if ((opMode == OperationMode::VELOCITY)) {
+  if ((opMode == OpMode::VELOCITY)) {
     if (currentRPM == targetRPM)
       currentPOS = targetPOS - sDecel;
     else if (currentRPM != 0) {
@@ -312,15 +335,27 @@ String Stepper::StopVelocity() {
 }
 
 String Stepper::EnableStepper() {
-  targetRPM = 0;
-  targetPOS = 0;
-  currentPOS = targetPOS;
-  this->Initialize();
+  if (!enabled) {
+    // Reset Motion Commands
+    targetRPM = 0;
+    targetPOS = 0;
+    currentPOS = 0;
+    currentRPM = 0;
 
-  digitalWrite(m_pinConfig.EN_PIN, LOW); // enable axis
-  swEN = true;
+    // Enable Driver
+    digitalWrite(m_pinConfig.EN_PIN, LOW); // enable axis
 
-  return "stepper enabled";
+    bool res;
+
+    // Reinitialize
+    this->Initialize(&res);
+
+    if (res) { // Set flag to True
+      return "stepper enabled";
+    }
+    return "failed to enable stepper";
+  }
+  return "stepper already enabled";
 }
 
 String Stepper::SetOperationMode(uint32_t mode) {
@@ -329,13 +364,13 @@ String Stepper::SetOperationMode(uint32_t mode) {
   if (motorState == MotorState::IDLE) {
     switch (mode) {
     case 0:
-      opMode = OperationMode::POSITION;
+      opMode = OpMode::POSITION;
       break;
     case 1:
-      opMode = OperationMode::VELOCITY;
+      opMode = OpMode::VELOCITY;
       break;
     case 2:
-      opMode = OperationMode::INVERSE_TIME;
+      opMode = OpMode::INVERSE_TIME;
       break;
     default:
       return "invalid mode";
@@ -360,6 +395,112 @@ String Stepper::SetDeccelerationTime(uint32_t millis) {
 
   return "time decel " + String(previousValue) + " -> " + String(timeDecel_ms);
 }
+
+String Stepper::SetStopOnStall(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    stopOnStall = false;
+    return "stopOnStall flag set to false";
+  case 1:
+    stopOnStall = true;
+    return "stopOnStall flag set to true";
+  default:
+    return "invalid input";
+  }
+}
+
+String Stepper::SetMicrostepping(uint32_t userInput) {
+  if (motorState == MotorState::IDLE) {
+    // if (0 < userInput <= 31) {
+    //   runningCurrent = userInput;
+    //   holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+
+    switch (userInput) {
+    case 1:
+      microstep = 1;
+      break;
+    case 2:
+      microstep = 2;
+      break;
+    case 4:
+      microstep = 4;
+      break;
+    case 8:
+      microstep = 8;
+      break;
+    case 16:
+      microstep = 16;
+      break;
+    case 32:
+      microstep = 32;
+      break;
+    case 64:
+      microstep = 64;
+      break;
+    case 128:
+      microstep = 128;
+      break;
+    default:
+      return "Microstep must be 2^n (max 128)";
+    }
+
+    bool res;
+
+    // Reinitialize
+    this->Initialize(&res);
+
+    if (res) { // Set flag to True
+      return "Microstep: " + String(microstep);
+    }
+
+    return "Failed to write microstep to driver";
+  }
+  return "Microstep can only be modified in idle mode";
+}
+
+String Stepper::SetRunningCurrent(uint32_t userInput) {
+  if (motorState == MotorState::IDLE) {
+    if (0 < userInput <= 31) {
+      runningCurrent = userInput;
+      holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+
+      bool res;
+
+      // Reinitialize
+      this->Initialize(&res);
+
+      if (res) { // Set flag to True
+        return "Running current: " + String(runningCurrent);
+      }
+
+      return "Failed to write running current to driver";
+    }
+    return "Value out of bounds";
+  }
+  return "Running current can only be modified in idle mode";
+}
+
+String Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
+  if (motorState == MotorState::IDLE) {
+    if (0 < userInput <= 50) {
+      holdingCurrentPercentage = userInput;
+      holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+
+      bool res;
+
+      // Reinitialize
+      this->Initialize(&res);
+
+      if (res) { // Set flag to True
+        return "Holding current percentage: " + String(holdingCurrentPercentage) + "%";
+      }
+
+      return "Failed to write holding current percentage to driver";
+    }
+    return "Value out of bounds";
+  }
+  return "Holding current percentage can only be modified in idle mode";
+}
 /* ================================================================================== */
 /*                                       ACTION                                       */
 /* ================================================================================== */
@@ -376,10 +517,10 @@ void Stepper::Run() {
 
   /* ================================= Update Position ================================ */
   switch (opMode) {
-  case OperationMode::POSITION:
+  case OpMode::POSITION:
     currentPOS += (direction ? 1 : -1);
     break;
-  case OperationMode::VELOCITY:
+  case OpMode::VELOCITY:
     if (sAbs >= sAcel && sAbs < sTotal - sDecel)
       currentPOS += 0;
     else
@@ -415,13 +556,13 @@ bool Stepper::_IsStalled() {
   }
 }
 
-void Stepper::_ComputeAccelerationParameters(float v0) {
-  float highV = _max(targetRPM, v0);
-  float lowV = v0 < targetRPM ? _max(minRPM, v0) : targetRPM;
+void Stepper::_ComputeAccelerationParameters() {
+  float highV = _max(targetRPM, v_0);
+  float lowV = v_0 < targetRPM ? _max(minRPM, v_0) : targetRPM;
 
   /* ================================= Estimated step ================================= */
   sAcel = (targetRPM > minRPM && timeAcel_ms > 0)
-              ? ((highV + lowV) * timeAcel_ms / 2) / (60.0 * 1e6) * (200 * m_motorConfig.MICROSTEP)
+              ? ((highV + lowV) * timeAcel_ms / 2) / (60.0 * 1e6) * (200 * microstep)
               : 0;
 
   /* ================================ Parameter (Time) ================================ */
@@ -432,7 +573,7 @@ void Stepper::_ComputeDeccelerationParameters(float vmax) {
 
   /* ================================= Estimated Step ================================= */
   // FIXME: No idea why timeDecel_ms needs to be divided by 4 instead of 2
-  sDecel = timeDecel_ms > 0 ? ((vmax + minRPM) * timeDecel_ms / 4) / (60.0 * 1e6) * (200 * m_motorConfig.MICROSTEP) : 0;
+  sDecel = timeDecel_ms > 0 ? ((vmax + minRPM) * timeDecel_ms / 4) / (60.0 * 1e6) * (200 * microstep) : 0;
 
   sDecel = decelStepCorrection(sDecel, targetRPM);
 
@@ -447,7 +588,7 @@ unsigned long Stepper::ComputeTimePeriod() {
     currentRPM = 0;
 
     // Reset to 0 on velocity mode
-    if (opMode == OperationMode::VELOCITY) {
+    if (opMode == OpMode::VELOCITY) {
       currentPOS = 0;
       targetPOS = 0;
     }
@@ -456,6 +597,7 @@ unsigned long Stepper::ComputeTimePeriod() {
     status = this->ReadStatus();
 
     if (status == 0 || status == 255) {
+      this->EmergencyStop();
       this->_UpdateMotorState(MotorState::POWER_ERR);
     } else
       this->_UpdateMotorState(MotorState::IDLE);
@@ -464,7 +606,13 @@ unsigned long Stepper::ComputeTimePeriod() {
   } else {
 
     /* =============================== Update Motor State =============================== */
-    if (this->_IsStalled()) {
+    uint8_t status;
+    status = this->ReadStatus();
+
+    if (status == 0 || status == 255) {
+      this->EmergencyStop();
+      this->_UpdateMotorState(MotorState::POWER_ERR);
+    } else if (this->_IsStalled() || (stopOnStall && motorState == MotorState::STALLED)) {
       if (stopOnStall)
         this->EmergencyStop();
       this->_UpdateMotorState(MotorState::STALLED);
@@ -528,7 +676,7 @@ unsigned long Stepper::ComputeTimePeriod() {
           currentRPM = acelerating ? curveP2(nAcel, dS, targetRPM) : curveP1(nAcel, dS, _max(minRPM, targetRPM));
         }
 
-        RPMPeak = currentRPM;
+        peakRPM = currentRPM;
         recomputeParam = true;
 
         actualAcelTime = _dt;
@@ -540,13 +688,13 @@ unsigned long Stepper::ComputeTimePeriod() {
         /* ================================== Decceleration ================================= */
         if (recomputeParam) {
           sDecelRecomputed = sTotal - sAbs;
-          mDecel = (float)(RPMPeak - minRPM) / sDecelRecomputed;
+          mDecel = (float)(peakRPM - minRPM) / sDecelRecomputed;
           recomputeParam = false;
         }
         long sAbs_decel = sDecelRecomputed - sTotal + sAbs;
 
         /* =================================== Y = -mx + c =================================== */
-        currentRPM = RPMPeak - mDecel * sAbs_decel;
+        currentRPM = peakRPM - mDecel * sAbs_decel;
 
         /* ===================== TEST: Compute actual decceleration time ===================== */
         actualDecelTime = _dt_decel;
@@ -554,7 +702,7 @@ unsigned long Stepper::ComputeTimePeriod() {
     }
 
     /* =================================== step delay =================================== */
-    long pulseRateHz = (currentRPM * 200 * m_motorConfig.MICROSTEP) / 60;
+    long pulseRateHz = (currentRPM * 200 * microstep) / 60;
     stepDelay = pulseRateHz == 0 ? 0 : 1000000 / pulseRateHz;
 
     return stepDelay;

@@ -139,6 +139,9 @@ String Stepper::HandleRead(uint8_t reg) {
   case REG_HOLDING_CURRENT_PERCENTAGE:
     result = String(holdingCurrentPercentage);
     break;
+  case REG_DISABLE_STEPPER:
+    result = NO_READ_REGISTER;
+    break;
   default:
     result = INVALID_REGISTER;
   }
@@ -231,6 +234,9 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
     break;
   case REG_HOLDING_CURRENT_PERCENTAGE:
     result = this->SetHoldingCurrentPercentage(data);
+    break;
+  case REG_DISABLE_STEPPER:
+    result = this->DisableStepper();
     break;
   default:
     result = INVALID_REGISTER;
@@ -356,6 +362,15 @@ String Stepper::EnableStepper() {
     return "failed to enable stepper";
   }
   return "stepper already enabled";
+}
+
+String Stepper::DisableStepper() {
+  if (motorState == MotorState::IDLE) {
+    (m_pinConfig.EN_PIN, HIGH);
+    enabled = false;
+    return "stepper disabled";
+  }
+  return "stepper can only be manually disabled in idle state";
 }
 
 String Stepper::SetOperationMode(uint32_t mode) {
@@ -500,13 +515,6 @@ String Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
     return "Value out of bounds";
   }
   return "Holding current percentage can only be modified in idle mode";
-}
-/* ================================================================================== */
-/*                                       ACTION                                       */
-/* ================================================================================== */
-void Stepper::ReleaseAxis() {
-  if (motorState == MotorState::IDLE)
-    (m_pinConfig.EN_PIN, HIGH);
 }
 
 void Stepper::Run() {

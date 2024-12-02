@@ -26,6 +26,7 @@
 #define REG_MICROSTEPPING 0x11
 #define REG_RUNNING_CURRENT 0x12
 #define REG_HOLDING_CURRENT_PERCENTAGE 0x13
+#define REG_DISABLE_STEPPER 0x14
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -56,6 +57,7 @@ public:
   String EmergencyStop();
   String StopVelocity();
   String EnableStepper();
+  String DisableStepper();
   String SetOperationMode(uint32_t mode);
   String SetAccelerationTime(uint32_t millis);
   String SetDeccelerationTime(uint32_t millis);
@@ -66,7 +68,6 @@ public:
   String SetHoldingCurrentPercentage(uint32_t userInput);
 
   // action
-  void ReleaseAxis();
   void Run();
   void MoveInverseTime(); // TODO
   unsigned long ComputeTimePeriod();

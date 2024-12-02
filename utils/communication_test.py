@@ -17,8 +17,10 @@ if __name__ == "__main__":
     print(res)
     res = write(Register.RUNNING_CURRENT, 31)
     print(res)
-    res = write(Register.HOLDING_CURRENT_PERCENTAGE, 0)
+    res = write(Register.HOLDING_CURRENT_PERCENTAGE, 50)
     print(res)
+    # res = write(Register.DISABLE_STEPPER, 0)
+    # print(res)
     # write(Register.OPERATION_MODE, OpMode.VELOCITY)
 
     # write(Register.TARGET_POSITION, round(30 * 200))

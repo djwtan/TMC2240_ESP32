@@ -11,6 +11,7 @@ void Stepper::ConfigurePin(PinConfig pin) {
   pinMode(m_pinConfig.STEP_PIN, OUTPUT);
   pinMode(m_pinConfig.DIR_PIN, OUTPUT);
   pinMode(m_pinConfig.CS_PIN, OUTPUT);
+  pinMode(m_pinConfig.HOME_SENSOR_PIN, INPUT);
 
   digitalWrite(m_pinConfig.CS_PIN, HIGH);
 }
@@ -145,6 +146,18 @@ String Stepper::HandleRead(uint8_t reg) {
   case REG_STALL_VALUE:
     result = String(this->ReadStallValue());
     break;
+  case REG_HOMING_METHOD:
+    result = String(get_HomingMethod(homingMethod));
+    break;
+  case REG_HOMING_SENSOR_TRIGGER_VALUE:
+    result = sensorHomeValue ? "high" : "low";
+    break;
+  case REG_REQUEST_HOMING:
+    result = runHoming ? "yes" : "no";
+    break;
+  case REG_HOMED:
+    result = homed ? "yes" : "no";
+    break;
   default:
     result = INVALID_REGISTER;
   }
@@ -250,6 +263,18 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
     result = this->DisableStepper();
     break;
   case REG_STALL_VALUE:
+    result = NO_WRITE_REGISTER;
+    break;
+  case REG_HOMING_METHOD:
+    result = this->SetHomingMethod(data);
+    break;
+  case REG_HOMING_SENSOR_TRIGGER_VALUE:
+    result = this->SetHomingSensorTriggerValue(data);
+    break;
+  case REG_REQUEST_HOMING:
+    result = this->RequestHoming(data);
+    break;
+  case REG_HOMED:
     result = NO_WRITE_REGISTER;
     break;
   default:
@@ -531,23 +556,69 @@ String Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
   return "Holding current percentage can only be modified in idle mode";
 }
 
+String Stepper::SetHomingMethod(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    homingMethod = HomingMethod::IMMEDIATE;
+    return "homing method set to immediate";
+  case 1:
+    homingMethod = HomingMethod::TORQUE;
+    return "homing method set to torque";
+  case 2:
+    homingMethod = HomingMethod::SENSOR;
+    return "homing method set to sensor";
+  default:
+    return "invalid input";
+  }
+}
+
+String Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    sensorHomeValue = false;
+    return "sensor home set to LOW";
+  case 1:
+    sensorHomeValue = true;
+    return "sensor home set to HIGH";
+  default:
+    return "invalid input";
+  }
+}
+
+String Stepper::RequestHoming(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    runHoming = false;
+    return "Homing request cancelled";
+  case 1:
+    homed = false; // reset home flag
+    runHoming = true;
+    return "Homing requested. Method: " + get_HomingMethod(homingMethod) +
+           (homingMethod == HomingMethod::SENSOR ? (sensorHomeValue ? "high" : "low") : "");
+  default:
+    return "invalid input";
+  }
+}
+
 void Stepper::Run() {
-  /* ================================== Execute Step ================================== */
-  digitalWrite(m_pinConfig.STEP_PIN, _step);
+  if (currentPOS != targetPOS) {
+    /* ================================== Execute Step ================================== */
+    digitalWrite(m_pinConfig.STEP_PIN, _step);
 
-  _step = !_step;
+    _step = !_step;
 
-  /* ================================= Update Position ================================ */
-  switch (opMode) {
-  case OpMode::POSITION:
-    currentPOS += (direction ? 1 : -1);
-    break;
-  case OpMode::VELOCITY:
-    if (sAbs >= sAcel && sAbs < sTotal - sDecel)
-      currentPOS += 0;
-    else
+    /* ================================= Update Position ================================ */
+    switch (opMode) {
+    case OpMode::POSITION:
       currentPOS += (direction ? 1 : -1);
-    break;
+      break;
+    case OpMode::VELOCITY:
+      if (sAbs >= sAcel && sAbs < sTotal - sDecel)
+        currentPOS += 0;
+      else
+        currentPOS += (direction ? 1 : -1);
+      break;
+    }
   }
 }
 
@@ -626,6 +697,37 @@ unsigned long Stepper::ComputeTimePeriod() {
     return 0;
 
   } else {
+
+    /* ===================================== Homing? ==================================== */
+    if (runHoming) {
+      switch (homingMethod) {
+      case HomingMethod::IMMEDIATE:
+        currentPOS = 0;
+        targetPOS = 0;
+        homed = true;
+        runHoming = false;
+        break;
+
+      case HomingMethod::TORQUE: {
+        if (this->_IsStalled()) {
+          currentPOS = 0;
+          targetPOS = 0;
+          homed = true;
+          runHoming = false;
+        }
+        break;
+      }
+
+      case HomingMethod::SENSOR:
+        if (digitalRead(m_pinConfig.HOME_SENSOR_PIN) == sensorHomeValue) {
+          currentPOS = 0;
+          targetPOS = 0;
+          homed = true;
+          runHoming = false;
+        }
+        break;
+      }
+    }
 
     /* =============================== Update Motor State =============================== */
     uint8_t status;

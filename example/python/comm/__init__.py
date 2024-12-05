@@ -32,12 +32,27 @@ class Register:
     HOLDING_CURRENT_PERCENTAGE = 0x13
     DISABLE_STEPPER = 0x14
     STALL_VALUE = 0x15
+    HOMING_METHOD = 0x16
+    HOMING_SENSOR_TRIGGER_VALUE = 0x17
+    REQUEST_HOMING = 0x18
+    HOMED = 0x19
 
 
 class OpMode:
     POSITION = 0
     VELOCITY = 1
     INVERSE_TIME = 2
+
+
+class HomingMethod:
+    IMMEDIATE = 0
+    TORQUE = 1
+    SENSOR = 2
+
+
+class HomingTriggerValue:
+    HIGH = 1
+    LOW = 0
 
 
 class ESP32_TMC2240_API:

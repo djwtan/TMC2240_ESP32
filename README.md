@@ -19,3 +19,4 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 - Read SG & SG4 value and relate to current to calculate torque (page 116, 122)
 - Release axis to use "Free Wheeling" (page 118)
 - Homing
+- Limit Switch

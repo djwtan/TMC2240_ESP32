@@ -28,6 +28,10 @@
 #define REG_HOLDING_CURRENT_PERCENTAGE 0x13
 #define REG_DISABLE_STEPPER 0x14
 #define REG_STALL_VALUE 0x15
+#define REG_HOMING_METHOD 0X16
+#define REG_HOMING_SENSOR_TRIGGER_VALUE 0X17
+#define REG_REQUEST_HOMING 0X18
+#define REG_HOMED 0x19
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -69,6 +73,9 @@ public:
   String SetMicrostepping(uint32_t userInput);
   String SetRunningCurrent(uint32_t userInput);
   String SetHoldingCurrentPercentage(uint32_t userInput);
+  String SetHomingMethod(uint32_t userInput);
+  String SetHomingSensorTriggerValue(uint32_t userInput);
+  String RequestHoming(uint32_t userInput);
 
   // action
   void Run();
@@ -84,7 +91,8 @@ private:
   bool enabled{false};
   OpMode opMode{OpMode::POSITION};
   PosCmdMode posCmdMode{PosCmdMode::RELATIVE};
-  HomingMode homingMode{HomingMode::IMMEDIATE};
+  HomingMethod homingMethod{HomingMethod::IMMEDIATE};
+  bool sensorHomeValue{false};
 
   // Return
   String _GenerateMessage();
@@ -108,6 +116,7 @@ private:
   double timeDecel_ms{2 * 1000000UL};
   bool stopOnStall{false};
   bool runHoming{false};
+  bool homed{false};
 
   // Test
   unsigned long actualAcelTime{0};

@@ -31,6 +31,7 @@ class Register:
     RUNNING_CURRENT = 0x12
     HOLDING_CURRENT_PERCENTAGE = 0x13
     DISABLE_STEPPER = 0x14
+    STALL_VALUE = 0x15
 
 
 class OpMode:

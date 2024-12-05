@@ -28,6 +28,12 @@ enum class MotorState {
   NOT_INIT,
 };
 
+enum class HomingMode {
+  IMMEDIATE,
+  SENSOR,
+  TORQUE,
+};
+
 inline String get_MotorState(MotorState mState) {
   switch (mState) {
   case MotorState::STALLED:

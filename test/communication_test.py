@@ -14,12 +14,17 @@ if __name__ == "__main__":
     # stepper_controller.read(Register.ACTUAL_DECCELERATION_TIME)
     # stepper_controller.write(Register.ENABLE_STEPPER)
 
-    res = stepper_controller.write(Register.MICROSTEPPING, 1)
-    print(res)
-    res = stepper_controller.write(Register.RUNNING_CURRENT, 31)
-    print(res)
-    res = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 50)
-    print(res)
+    # res = stepper_controller.write(Register.MICROSTEPPING, 1)
+    # print(res)
+    # res = stepper_controller.write(Register.RUNNING_CURRENT, 31)
+    # print(res)
+    # res = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 50)
+    # print(res)
+
+    while True:
+        res = stepper_controller.read(Register.STALL_VALUE)
+        print(res)
+
     # res = stepper_controller.write(Register.DISABLE_STEPPER, 0)
     # print(res)
     # stepper_controller.write(Register.OPERATION_MODE, OpMode.VELOCITY)

@@ -49,6 +49,7 @@ void setup() {
   pinConfig.DIR_PIN = 33;
   pinConfig.STEP_PIN = 25;
   pinConfig.CS_PIN = SS;
+  pinConfig.HOME_SENSOR_PIN = 26;
   stepper.ConfigurePin(pinConfig);
 
   /* ================================== Init stepper ================================== */

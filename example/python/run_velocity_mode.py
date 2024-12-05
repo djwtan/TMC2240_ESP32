@@ -33,9 +33,9 @@ if __name__ == "__main__":
     init_driver()
 
     # =============================== Run stepper at n rpm =============================== #
-    rpm = 800  # 10 - 2400
+    rpm = 100  # 10 - 2400
 
-    stepper_controller.write(Register.TARGET_POSITION, 200)  # dummy value
+    stepper_controller.write(Register.TARGET_POSITION, 30)  # dummy value
     stepper_controller.write(Register.TARGET_RPM, rpm)
     stepper_controller.write(Register.MOVE)  # needs to be called to initialize movement
 
@@ -49,8 +49,11 @@ if __name__ == "__main__":
             # current_rpm = stepper_controller.read(Register.CURRENT_RPM)
             # print("RPM {} : {}".format(current_rpm, target_rpm))
 
-            motor_status = stepper_controller.read(Register.MOTOR_STATUS)
-            print("{}".format(motor_status))
+            res = stepper_controller.read(Register.STALL_VALUE)
+            print(res)
+
+            # motor_status = stepper_controller.read(Register.MOTOR_STATUS)
+            # print("{}".format(motor_status))
 
         except KeyboardInterrupt:
             break

@@ -142,6 +142,9 @@ String Stepper::HandleRead(uint8_t reg) {
   case REG_DISABLE_STEPPER:
     result = NO_READ_REGISTER;
     break;
+  case REG_STALL_VALUE:
+    result = String(this->ReadStallValue());
+    break;
   default:
     result = INVALID_REGISTER;
   }
@@ -158,7 +161,13 @@ float Stepper::ReadTemperature() {
   return (float)((uint16_t)(data & 0x00001FFF) - 2038) / 7.7;
 }
 
-// todo: read current
+uint16_t Stepper::ReadStallValue() {
+  uint8_t status;
+  uint32_t data;
+  this->_RegRead(0x6F, &data, &status);
+
+  return (uint16_t)(data & 0x000003FF);
+}
 
 uint8_t Stepper::ReadStatus() {
   uint8_t status;
@@ -239,6 +248,9 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
     break;
   case REG_DISABLE_STEPPER:
     result = this->DisableStepper();
+    break;
+  case REG_STALL_VALUE:
+    result = NO_WRITE_REGISTER;
     break;
   default:
     result = INVALID_REGISTER;

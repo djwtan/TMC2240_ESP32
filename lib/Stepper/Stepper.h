@@ -27,12 +27,14 @@
 #define REG_RUNNING_CURRENT 0x12
 #define REG_HOLDING_CURRENT_PERCENTAGE 0x13
 #define REG_DISABLE_STEPPER 0x14
+#define REG_STALL_VALUE 0x15
 
 struct PinConfig {
   uint8_t EN_PIN;
   uint8_t DIR_PIN;
   uint8_t STEP_PIN;
   uint8_t CS_PIN;
+  uint8_t HOME_SENSOR_PIN;
 };
 
 class Stepper {
@@ -46,6 +48,7 @@ public:
   // read
   String HandleRead(uint8_t reg);
   float ReadTemperature();
+  uint16_t ReadStallValue();
   uint8_t ReadStatus();
   String ReadMotorState();
 
@@ -81,6 +84,7 @@ private:
   bool enabled{false};
   OpMode opMode{OpMode::POSITION};
   PosCmdMode posCmdMode{PosCmdMode::RELATIVE};
+  HomingMode homingMode{HomingMode::IMMEDIATE};
 
   // Return
   String _GenerateMessage();
@@ -103,6 +107,7 @@ private:
   double timeAcel_ms{2 * 1000000UL};
   double timeDecel_ms{2 * 1000000UL};
   bool stopOnStall{false};
+  bool runHoming{false};
 
   // Test
   unsigned long actualAcelTime{0};

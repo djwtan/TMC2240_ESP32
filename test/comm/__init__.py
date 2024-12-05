@@ -123,10 +123,10 @@ class ESP32_TMC2240_API:
                 decoded_response = response.decode("utf-8")  # Decode the byte data to string using UTF-8
                 print(decoded_response)  # Print the decoded string
 
-    def read(self, register: Register):
-        message = ESP32_TMC2240_API.construct_serial_message(Instruction.READ, register)
+    def read(self, register: Register, stepper_id: int = 0x00):
+        message = ESP32_TMC2240_API.construct_serial_message(Instruction.READ, register, stepper_id=stepper_id)
         return self.send_serial(message)
 
-    def write(self, register: Register, value: int = 0):
-        message = ESP32_TMC2240_API.construct_serial_message(Instruction.WRITE, register, value)
+    def write(self, register: Register, value: int = 0, stepper_id: int = 0x00):
+        message = ESP32_TMC2240_API.construct_serial_message(Instruction.WRITE, register, value, stepper_id=stepper_id)
         return self.send_serial(message)

@@ -7,12 +7,6 @@ def init_driver():
     response = stepper_controller.write(Register.ENABLE_STEPPER)  # can skip. Needs to be called after stall
     print(response)
 
-    # ================================== Request homing ================================== #
-    response = stepper_controller.write(Register.HOMING_METHOD, HomingMethod.TORQUE)
-    print(response)
-    response = stepper_controller.write(Register.REQUEST_HOMING, 1)
-    print(response)
-
     # ====================== Set acceleration and decceleration time ===================== #
     acceleration_time = 2
     decceleration_time = 2
@@ -38,6 +32,7 @@ if __name__ == "__main__":
     # ==================================== Initialize ==================================== #
     init_driver()
 
+    # ================================== Request homing ================================== #
     response = stepper_controller.write(Register.HOMING_METHOD, HomingMethod.SENSOR)
     print(response)
     response = stepper_controller.write(Register.HOMING_SENSOR_TRIGGER_VALUE, HomingTriggerValue.HIGH)

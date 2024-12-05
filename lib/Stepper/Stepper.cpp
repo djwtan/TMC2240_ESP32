@@ -1,6 +1,6 @@
 #include "Stepper.h"
 
-Stepper::Stepper(uint8_t id) : pri_id(id), spiSettings(10000000, MSBFIRST, SPI_MODE3) {}
+Stepper::Stepper(uint8_t id) : pri_id(id) {}
 
 /* ================================================================================== */
 /*                                         SET                                        */
@@ -12,9 +12,9 @@ void Stepper::ConfigurePin(PinConfig pin) {
   pinMode(m_pinConfig.DIR_PIN, OUTPUT);
   pinMode(m_pinConfig.CS_PIN, OUTPUT);
   pinMode(m_pinConfig.HOME_SENSOR_PIN, INPUT);
-
-  digitalWrite(m_pinConfig.CS_PIN, HIGH);
 }
+
+void Stepper::InitSPI(TMC2240_SPI *tmc2240spi) { m_spi = tmc2240spi; }
 
 void Stepper::Initialize(bool *result) {
   uint32_t ms;
@@ -162,8 +162,8 @@ String Stepper::HandleRead(uint8_t reg) {
     result = INVALID_REGISTER;
   }
 
-  return result;
-  // return _GenerateMessage() + result;
+  // return result;
+  return _GenerateMessage() + result;
 }
 
 float Stepper::ReadTemperature() {
@@ -835,7 +835,7 @@ unsigned long Stepper::ComputeTimePeriod() {
 
 void Stepper::_RegWrite(const uint8_t address, const uint32_t data) {
   uint8_t buff[5] = {address | 0x80, (data >> 24) & 0xFF, (data >> 16) & 0xFF, (data >> 8) & 0xFF, data & 0xFF};
-  this->_SPIExchange(buff, 5);
+  m_spi->SPIExchange(buff, 5, pri_id);
 }
 
 void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
@@ -847,7 +847,7 @@ void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
     buff[2] = 0x00;
     buff[3] = 0x00;
     buff[4] = 0x00;
-    this->_SPIExchange(buff, 5);
+    m_spi->SPIExchange(buff, 5, pri_id);
   }
 
   /*
@@ -866,19 +866,4 @@ void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
   */
   *status = buff[0];
   *data = (buff[1] << 24) | (buff[2] << 16) | (buff[3] << 8) | buff[4];
-}
-
-void Stepper::_SPIExchange(uint8_t *data, const int size) {
-  digitalWrite(m_pinConfig.CS_PIN, LOW);
-  delayMicroseconds(1);
-  SPI.beginTransaction(spiSettings);
-  delayMicroseconds(1);
-
-  SPI.transfer(data, size);
-  delayMicroseconds(1);
-
-  SPI.endTransaction();
-  delayMicroseconds(1);
-  digitalWrite(m_pinConfig.CS_PIN, HIGH);
-  delayMicroseconds(1);
 }

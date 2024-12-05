@@ -24,7 +24,8 @@ def init_driver():
     print(response)
     response = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 50)  # 0-100
     print(response)
-    response = stepper_controller.write(Register.OPERATION_MODE, OpMode.VELOCITY)  # velocity mode
+    # Homing can be performed in both position and velocity mode.
+    response = stepper_controller.write(Register.OPERATION_MODE, OpMode.POSITION)  # position mode
     print(response)
 
 
@@ -32,18 +33,26 @@ if __name__ == "__main__":
     # ==================================== Initialize ==================================== #
     init_driver()
 
-    # =============================== Run stepper at n rpm =============================== #
-    rpm = 500  # 10 - 2400
+    # ================================== Request homing ================================== #
+    response = stepper_controller.write(Register.HOMING_METHOD, HomingMethod.SENSOR)
+    print(response)
+    response = stepper_controller.write(Register.HOMING_SENSOR_TRIGGER_VALUE, HomingTriggerValue.HIGH)
+    print(response)
+    response = stepper_controller.write(Register.REQUEST_HOMING, 1)
+    print(response)
 
-    stepper_controller.write(Register.TARGET_POSITION, 30)  # dummy value
+    # =============================== Run stepper at n rpm =============================== #
+    rpm = 200  # 10 - 2400
+
+    stepper_controller.write(Register.TARGET_POSITION, 8000)
     stepper_controller.write(Register.TARGET_RPM, rpm)
     stepper_controller.write(Register.MOVE)  # needs to be called to initialize movement
 
     while True:
         try:
-            # target_pos = stepper_controller.read(Register.TARGET_POSITION)
-            # current_pos = stepper_controller.read(Register.CURRENT_POS)
-            # print("POS {} : {}".format(current_pos, target_pos))
+            target_pos = stepper_controller.read(Register.TARGET_POSITION)
+            current_pos = stepper_controller.read(Register.CURRENT_POS)
+            print("POS {} : {}".format(current_pos, target_pos))
 
             # target_rpm = stepper_controller.read(Register.TARGET_RPM)
             # current_rpm = stepper_controller.read(Register.CURRENT_RPM)
@@ -52,11 +61,14 @@ if __name__ == "__main__":
             # res = stepper_controller.read(Register.STALL_VALUE)
             # print(res)
 
-            motor_status = stepper_controller.read(Register.MOTOR_STATUS)
-            print("{}".format(motor_status))
+            # res = stepper_controller.read(Register.HOMED)
+            # print(res)
+
+            # motor_status = stepper_controller.read(Register.MOTOR_STATUS)
+            # print("{}".format(motor_status))
 
         except KeyboardInterrupt:
             break
 
-    stepper_controller.write(Register.STOP_VELOCITY)
+    # stepper_controller.write(Register.STOP_VELOCITY)
     # stepper_controller.write(Register.EMERGENCY_STOP)

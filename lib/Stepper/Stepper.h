@@ -3,8 +3,8 @@
 
 #include "Define.h"
 #include "Motion.h"
+#include "TMC2240_SPI.h"
 #include <Arduino.h>
-#include <SPI.h>
 
 #define REG_TARGET_POSITION 0x00
 #define REG_TARGET_RPM 0x01
@@ -46,6 +46,7 @@ public:
   Stepper(uint8_t id);
   // set
   void ConfigurePin(PinConfig pin);
+  void InitSPI(TMC2240_SPI *tmc2240spi);
   void Initialize(bool *result = nullptr);
   void SetPositionMode(PosCmdMode posCmdMode); // TODO
 
@@ -85,7 +86,7 @@ public:
 private:
   uint8_t pri_id;
   PinConfig m_pinConfig;
-  SPISettings spiSettings;
+  TMC2240_SPI *m_spi;
 
   // Operation
   bool enabled{false};
@@ -166,7 +167,6 @@ private:
   const uint8_t Toff = {0x01};
   void _RegWrite(const uint8_t address, const uint32_t data);
   void _RegRead(const uint8_t address, uint32_t *data, uint8_t *status);
-  void _SPIExchange(uint8_t *data, const int size);
 };
 
 #endif // STEPPER_H

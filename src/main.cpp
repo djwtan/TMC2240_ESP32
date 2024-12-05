@@ -40,8 +40,6 @@ void IRAM_ATTR onTimer0() {
   if (run0) {
     stepper0.Run();
   }
-  LED_STATE = !LED_STATE;
-  digitalWrite(LED_PIN, LED_STATE);
   portEXIT_CRITICAL_ISR(&timerMux0);
 
   /* ============================== Error State Flashing ============================== */
@@ -69,27 +67,21 @@ void setup() {
   /* =================================== Motor Pins =================================== */
   // Stepper 0
   PinConfig pinConfig0;
-  pinConfig0.EN_PIN = 32;
-  pinConfig0.DIR_PIN = 33;
-  pinConfig0.STEP_PIN = 25;
+  pinConfig0.EN_PIN = 22;
+  pinConfig0.DIR_PIN = 21;
+  pinConfig0.STEP_PIN = 32;
   pinConfig0.CS_PIN = SS0;
-  pinConfig0.HOME_SENSOR_PIN = 26;
-  // pinConfig0.EN_PIN = 22;
-  // pinConfig0.DIR_PIN = 21;
-  // pinConfig0.STEP_PIN = 32;
-  // pinConfig0.CS_PIN = SS0;
-  // pinConfig0.HOME_SENSOR_PIN = 33;
+  pinConfig0.HOME_SENSOR_PIN = 33;
   stepper0.ConfigurePin(pinConfig0);
 
   // Stepper 1
   PinConfig pinConfig1;
   pinConfig1.EN_PIN = 25;
-  pinConfig1.DIR_PIN = 2;
-  // pinConfig1.DIR_PIN = 26;
+  pinConfig1.DIR_PIN = 26;
   pinConfig1.STEP_PIN = 27;
   pinConfig1.CS_PIN = SS1;
   pinConfig1.HOME_SENSOR_PIN = 14;
-  stepper0.ConfigurePin(pinConfig1);
+  stepper1.ConfigurePin(pinConfig1);
 
   /* ================================== Init stepper ================================== */
   stepper0.InitSPI(&tmc2240spi);
@@ -134,8 +126,10 @@ void loop() {
   /* =================================== Read serial ================================== */
   comm.readSerial();
 
-  /* ==================================== Stepper 0 =================================== */
   unsigned long stepDelay0 = stepper0.ComputeTimePeriod();
+  unsigned long stepDelay1 = stepper1.ComputeTimePeriod();
+  /* ==================================== Stepper 0 =================================== */
+
   portENTER_CRITICAL(&timerMux0);
   if (stepDelay0 > 0) {
     run0 = true;
@@ -147,7 +141,6 @@ void loop() {
   portEXIT_CRITICAL(&timerMux0);
 
   /* ==================================== Stepper 1 =================================== */
-  unsigned long stepDelay1 = stepper1.ComputeTimePeriod();
   portENTER_CRITICAL(&timerMux1);
   if (stepDelay1 > 0) {
     run1 = true;

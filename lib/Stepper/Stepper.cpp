@@ -369,10 +369,10 @@ String Stepper::EmergencyStop() {
 String Stepper::StopVelocity() {
   if ((opMode == OpMode::VELOCITY)) {
     if (currentRPM == targetRPM)
-      currentPOS = targetPOS - sDecel;
+      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
     else if (currentRPM != 0) {
       this->_ComputeDeccelerationParameters(currentRPM);
-      currentPOS = targetPOS - sDecel;
+      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
     }
     return "stop received";
   }

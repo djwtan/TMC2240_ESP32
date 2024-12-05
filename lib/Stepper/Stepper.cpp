@@ -158,6 +158,8 @@ float Stepper::ReadTemperature() {
   return (float)((uint16_t)(data & 0x00001FFF) - 2038) / 7.7;
 }
 
+// todo: read current
+
 uint8_t Stepper::ReadStatus() {
   uint8_t status;
   uint32_t data;

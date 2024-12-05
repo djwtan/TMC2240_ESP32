@@ -3,8 +3,8 @@
 
 #include "Define.h"
 #include "Motion.h"
+#include "TMC2240_SPI.h"
 #include <Arduino.h>
-#include <SPI.h>
 
 #define REG_TARGET_POSITION 0x00
 #define REG_TARGET_RPM 0x01
@@ -27,12 +27,18 @@
 #define REG_RUNNING_CURRENT 0x12
 #define REG_HOLDING_CURRENT_PERCENTAGE 0x13
 #define REG_DISABLE_STEPPER 0x14
+#define REG_STALL_VALUE 0x15
+#define REG_HOMING_METHOD 0X16
+#define REG_HOMING_SENSOR_TRIGGER_VALUE 0X17
+#define REG_REQUEST_HOMING 0X18
+#define REG_HOMED 0x19
 
 struct PinConfig {
   uint8_t EN_PIN;
   uint8_t DIR_PIN;
   uint8_t STEP_PIN;
   uint8_t CS_PIN;
+  uint8_t HOME_SENSOR_PIN;
 };
 
 class Stepper {
@@ -40,12 +46,14 @@ public:
   Stepper(uint8_t id);
   // set
   void ConfigurePin(PinConfig pin);
+  void InitSPI(TMC2240_SPI *tmc2240spi);
   void Initialize(bool *result = nullptr);
   void SetPositionMode(PosCmdMode posCmdMode); // TODO
 
   // read
   String HandleRead(uint8_t reg);
   float ReadTemperature();
+  uint16_t ReadStallValue();
   uint8_t ReadStatus();
   String ReadMotorState();
 
@@ -66,6 +74,9 @@ public:
   String SetMicrostepping(uint32_t userInput);
   String SetRunningCurrent(uint32_t userInput);
   String SetHoldingCurrentPercentage(uint32_t userInput);
+  String SetHomingMethod(uint32_t userInput);
+  String SetHomingSensorTriggerValue(uint32_t userInput);
+  String RequestHoming(uint32_t userInput);
 
   // action
   void Run();
@@ -75,12 +86,14 @@ public:
 private:
   uint8_t pri_id;
   PinConfig m_pinConfig;
-  SPISettings spiSettings;
+  TMC2240_SPI *m_spi;
 
   // Operation
   bool enabled{false};
   OpMode opMode{OpMode::POSITION};
   PosCmdMode posCmdMode{PosCmdMode::RELATIVE};
+  HomingMethod homingMethod{HomingMethod::IMMEDIATE};
+  bool sensorHomeValue{false};
 
   // Return
   String _GenerateMessage();
@@ -103,6 +116,8 @@ private:
   double timeAcel_ms{2 * 1000000UL};
   double timeDecel_ms{2 * 1000000UL};
   bool stopOnStall{false};
+  bool runHoming{false};
+  bool homed{false};
 
   // Test
   unsigned long actualAcelTime{0};
@@ -152,7 +167,6 @@ private:
   const uint8_t Toff = {0x01};
   void _RegWrite(const uint8_t address, const uint32_t data);
   void _RegRead(const uint8_t address, uint32_t *data, uint8_t *status);
-  void _SPIExchange(uint8_t *data, const int size);
 };
 
 #endif // STEPPER_H

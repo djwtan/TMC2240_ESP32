@@ -31,12 +31,28 @@ class Register:
     RUNNING_CURRENT = 0x12
     HOLDING_CURRENT_PERCENTAGE = 0x13
     DISABLE_STEPPER = 0x14
+    STALL_VALUE = 0x15
+    HOMING_METHOD = 0x16
+    HOMING_SENSOR_TRIGGER_VALUE = 0x17
+    REQUEST_HOMING = 0x18
+    HOMED = 0x19
 
 
 class OpMode:
     POSITION = 0
     VELOCITY = 1
     INVERSE_TIME = 2
+
+
+class HomingMethod:
+    IMMEDIATE = 0
+    TORQUE = 1
+    SENSOR = 2
+
+
+class HomingTriggerValue:
+    HIGH = 1
+    LOW = 0
 
 
 class ESP32_TMC2240_API:
@@ -107,10 +123,10 @@ class ESP32_TMC2240_API:
                 decoded_response = response.decode("utf-8")  # Decode the byte data to string using UTF-8
                 print(decoded_response)  # Print the decoded string
 
-    def read(self, register: Register):
-        message = ESP32_TMC2240_API.construct_serial_message(Instruction.READ, register)
+    def read(self, register: Register, stepper_id: int = 0x00):
+        message = ESP32_TMC2240_API.construct_serial_message(Instruction.READ, register, stepper_id=stepper_id)
         return self.send_serial(message)
 
-    def write(self, register: Register, value: int = 0):
-        message = ESP32_TMC2240_API.construct_serial_message(Instruction.WRITE, register, value)
+    def write(self, register: Register, value: int = 0, stepper_id: int = 0x00):
+        message = ESP32_TMC2240_API.construct_serial_message(Instruction.WRITE, register, value, stepper_id=stepper_id)
         return self.send_serial(message)

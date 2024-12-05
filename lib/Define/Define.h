@@ -28,26 +28,39 @@ enum class MotorState {
   NOT_INIT,
 };
 
+enum class HomingMethod {
+  IMMEDIATE,
+  SENSOR,
+  TORQUE,
+};
+
 inline String get_MotorState(MotorState mState) {
   switch (mState) {
   case MotorState::STALLED:
     return "stalled";
-    break;
   case MotorState::OVERSPEED:
     return "overspeed";
-    break;
   case MotorState::IDLE:
     return "idle";
-    break;
   case MotorState::RUNNING:
     return "running";
-    break;
   case MotorState::POWER_ERR:
     return "power_err";
-    break;
   case MotorState::NOT_INIT:
     return "not_init";
-    break;
+  default:
+    return "err";
+  }
+};
+
+inline String get_HomingMethod(HomingMethod hMethod) {
+  switch (hMethod) {
+  case HomingMethod::IMMEDIATE:
+    return "immediate";
+  case HomingMethod::SENSOR:
+    return "sensor";
+  case HomingMethod::TORQUE:
+    return "torque";
   default:
     return "err";
   }
@@ -64,13 +77,10 @@ inline String get_OperationMode(OpMode opMode) {
   switch (opMode) {
   case OpMode::POSITION:
     return "position mode";
-    break;
   case OpMode::VELOCITY:
     return "velocity mode";
-    break;
   case OpMode::INVERSE_TIME:
     return "inverse time mode";
-    break;
   default:
     return "err";
   }

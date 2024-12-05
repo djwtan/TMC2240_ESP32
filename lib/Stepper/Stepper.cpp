@@ -1,6 +1,6 @@
 #include "Stepper.h"
 
-Stepper::Stepper(uint8_t id) : pri_id(id), spiSettings(10000000, MSBFIRST, SPI_MODE3) {}
+Stepper::Stepper(uint8_t id) : pri_id(id) {}
 
 /* ================================================================================== */
 /*                                         SET                                        */
@@ -11,9 +11,10 @@ void Stepper::ConfigurePin(PinConfig pin) {
   pinMode(m_pinConfig.STEP_PIN, OUTPUT);
   pinMode(m_pinConfig.DIR_PIN, OUTPUT);
   pinMode(m_pinConfig.CS_PIN, OUTPUT);
-
-  digitalWrite(m_pinConfig.CS_PIN, HIGH);
+  pinMode(m_pinConfig.HOME_SENSOR_PIN, INPUT);
 }
+
+void Stepper::InitSPI(TMC2240_SPI *tmc2240spi) { m_spi = tmc2240spi; }
 
 void Stepper::Initialize(bool *result) {
   uint32_t ms;
@@ -142,12 +143,27 @@ String Stepper::HandleRead(uint8_t reg) {
   case REG_DISABLE_STEPPER:
     result = NO_READ_REGISTER;
     break;
+  case REG_STALL_VALUE:
+    result = String(this->ReadStallValue());
+    break;
+  case REG_HOMING_METHOD:
+    result = String(get_HomingMethod(homingMethod));
+    break;
+  case REG_HOMING_SENSOR_TRIGGER_VALUE:
+    result = sensorHomeValue ? "high" : "low";
+    break;
+  case REG_REQUEST_HOMING:
+    result = runHoming ? "yes" : "no";
+    break;
+  case REG_HOMED:
+    result = homed ? "yes" : "no";
+    break;
   default:
     result = INVALID_REGISTER;
   }
 
-  return result;
-  // return _GenerateMessage() + result;
+  // return result;
+  return _GenerateMessage() + result;
 }
 
 float Stepper::ReadTemperature() {
@@ -158,7 +174,13 @@ float Stepper::ReadTemperature() {
   return (float)((uint16_t)(data & 0x00001FFF) - 2038) / 7.7;
 }
 
-// todo: read current
+uint16_t Stepper::ReadStallValue() {
+  uint8_t status;
+  uint32_t data;
+  this->_RegRead(0x6F, &data, &status);
+
+  return (uint16_t)(data & 0x000003FF);
+}
 
 uint8_t Stepper::ReadStatus() {
   uint8_t status;
@@ -239,6 +261,21 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
     break;
   case REG_DISABLE_STEPPER:
     result = this->DisableStepper();
+    break;
+  case REG_STALL_VALUE:
+    result = NO_WRITE_REGISTER;
+    break;
+  case REG_HOMING_METHOD:
+    result = this->SetHomingMethod(data);
+    break;
+  case REG_HOMING_SENSOR_TRIGGER_VALUE:
+    result = this->SetHomingSensorTriggerValue(data);
+    break;
+  case REG_REQUEST_HOMING:
+    result = this->RequestHoming(data);
+    break;
+  case REG_HOMED:
+    result = NO_WRITE_REGISTER;
     break;
   default:
     result = INVALID_REGISTER;
@@ -332,10 +369,10 @@ String Stepper::EmergencyStop() {
 String Stepper::StopVelocity() {
   if ((opMode == OpMode::VELOCITY)) {
     if (currentRPM == targetRPM)
-      currentPOS = targetPOS - sDecel;
+      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
     else if (currentRPM != 0) {
       this->_ComputeDeccelerationParameters(currentRPM);
-      currentPOS = targetPOS - sDecel;
+      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
     }
     return "stop received";
   }
@@ -519,23 +556,69 @@ String Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
   return "Holding current percentage can only be modified in idle mode";
 }
 
+String Stepper::SetHomingMethod(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    homingMethod = HomingMethod::IMMEDIATE;
+    return "homing method set to immediate";
+  case 1:
+    homingMethod = HomingMethod::TORQUE;
+    return "homing method set to torque";
+  case 2:
+    homingMethod = HomingMethod::SENSOR;
+    return "homing method set to sensor";
+  default:
+    return "invalid input";
+  }
+}
+
+String Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    sensorHomeValue = false;
+    return "sensor home set to LOW";
+  case 1:
+    sensorHomeValue = true;
+    return "sensor home set to HIGH";
+  default:
+    return "invalid input";
+  }
+}
+
+String Stepper::RequestHoming(uint32_t userInput) {
+  switch (userInput) {
+  case 0:
+    runHoming = false;
+    return "Homing request cancelled";
+  case 1:
+    homed = false; // reset home flag
+    runHoming = true;
+    return "Homing requested. Method: " + get_HomingMethod(homingMethod) +
+           (homingMethod == HomingMethod::SENSOR ? (sensorHomeValue ? "high" : "low") : "");
+  default:
+    return "invalid input";
+  }
+}
+
 void Stepper::Run() {
-  /* ================================== Execute Step ================================== */
-  digitalWrite(m_pinConfig.STEP_PIN, _step);
+  if (currentPOS != targetPOS) {
+    /* ================================== Execute Step ================================== */
+    digitalWrite(m_pinConfig.STEP_PIN, _step);
 
-  _step = !_step;
+    _step = !_step;
 
-  /* ================================= Update Position ================================ */
-  switch (opMode) {
-  case OpMode::POSITION:
-    currentPOS += (direction ? 1 : -1);
-    break;
-  case OpMode::VELOCITY:
-    if (sAbs >= sAcel && sAbs < sTotal - sDecel)
-      currentPOS += 0;
-    else
+    /* ================================= Update Position ================================ */
+    switch (opMode) {
+    case OpMode::POSITION:
       currentPOS += (direction ? 1 : -1);
-    break;
+      break;
+    case OpMode::VELOCITY:
+      if (sAbs >= sAcel && sAbs < sTotal - sDecel)
+        currentPOS += 0;
+      else
+        currentPOS += (direction ? 1 : -1);
+      break;
+    }
   }
 }
 
@@ -614,6 +697,37 @@ unsigned long Stepper::ComputeTimePeriod() {
     return 0;
 
   } else {
+
+    /* ===================================== Homing? ==================================== */
+    if (runHoming) {
+      switch (homingMethod) {
+      case HomingMethod::IMMEDIATE:
+        currentPOS = 0;
+        targetPOS = 0;
+        homed = true;
+        runHoming = false;
+        break;
+
+      case HomingMethod::TORQUE: {
+        if (this->_IsStalled()) {
+          currentPOS = 0;
+          targetPOS = 0;
+          homed = true;
+          runHoming = false;
+        }
+        break;
+      }
+
+      case HomingMethod::SENSOR:
+        if (digitalRead(m_pinConfig.HOME_SENSOR_PIN) == sensorHomeValue) {
+          currentPOS = 0;
+          targetPOS = 0;
+          homed = true;
+          runHoming = false;
+        }
+        break;
+      }
+    }
 
     /* =============================== Update Motor State =============================== */
     uint8_t status;
@@ -721,7 +835,7 @@ unsigned long Stepper::ComputeTimePeriod() {
 
 void Stepper::_RegWrite(const uint8_t address, const uint32_t data) {
   uint8_t buff[5] = {address | 0x80, (data >> 24) & 0xFF, (data >> 16) & 0xFF, (data >> 8) & 0xFF, data & 0xFF};
-  this->_SPIExchange(buff, 5);
+  m_spi->SPIExchange(buff, 5, pri_id);
 }
 
 void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
@@ -733,7 +847,7 @@ void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
     buff[2] = 0x00;
     buff[3] = 0x00;
     buff[4] = 0x00;
-    this->_SPIExchange(buff, 5);
+    m_spi->SPIExchange(buff, 5, pri_id);
   }
 
   /*
@@ -752,19 +866,4 @@ void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
   */
   *status = buff[0];
   *data = (buff[1] << 24) | (buff[2] << 16) | (buff[3] << 8) | buff[4];
-}
-
-void Stepper::_SPIExchange(uint8_t *data, const int size) {
-  digitalWrite(m_pinConfig.CS_PIN, LOW);
-  delayMicroseconds(1);
-  SPI.beginTransaction(spiSettings);
-  delayMicroseconds(1);
-
-  SPI.transfer(data, size);
-  delayMicroseconds(1);
-
-  SPI.endTransaction();
-  delayMicroseconds(1);
-  digitalWrite(m_pinConfig.CS_PIN, HIGH);
-  delayMicroseconds(1);
 }

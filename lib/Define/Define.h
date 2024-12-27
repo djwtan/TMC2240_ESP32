@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define MAX_STEPPER 2
+#define MAX_STEPPER 4
 #define ADDR_CONTROLLER_ID 0
 
 /* ---------------------------------------------------------------------------------- */

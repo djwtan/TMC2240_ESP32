@@ -12,12 +12,8 @@
 #define SS0 22
 #define SS1 21
 #define SS2 17
+#define SS3 5
 #define ISR_TIME_DEFAULT 500000 // 0.5 seconds
-
-/* ====================================== Test ====================================== */
-// #define LED_PIN 2 // In some ESP32 board have inbuilt LED
-// int LED_STATE = LOW;
-/* ---------------------------------------------------------------------------------- */
 
 Comm comm;
 TMC2240_SPI tmc2240spi; // spi object
@@ -40,7 +36,13 @@ hw_timer_t *timer2 = NULL;                             // Hardware timer1 pointe
 portMUX_TYPE timerMux2 = portMUX_INITIALIZER_UNLOCKED; // spinlock
 volatile bool run2;
 
-/* ===================================== Thread ===================================== */
+/* ==================================== Stepper3 ==================================== */
+Stepper stepper3(3);
+hw_timer_t *timer3 = NULL;                             // Hardware timer1 pointer
+portMUX_TYPE timerMux3 = portMUX_INITIALIZER_UNLOCKED; // spinlock
+volatile bool run3;
+
+/* ====================================== Timer ===================================== */
 
 void IRAM_ATTR onTimer0() {
   portENTER_CRITICAL_ISR(&timerMux0);
@@ -66,6 +68,14 @@ void IRAM_ATTR onTimer2() {
   portEXIT_CRITICAL_ISR(&timerMux2);
 }
 
+void IRAM_ATTR onTimer3() {
+  portENTER_CRITICAL_ISR(&timerMux3);
+  if (run3) {
+    stepper3.Run();
+  }
+  portEXIT_CRITICAL_ISR(&timerMux3);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -75,6 +85,7 @@ void setup() {
   tmc2240spi.RegisterCSPin(0, SS0);
   tmc2240spi.RegisterCSPin(1, SS1);
   tmc2240spi.RegisterCSPin(2, SS2);
+  tmc2240spi.RegisterCSPin(3, SS3);
 
   /* =================================== Motor Pins =================================== */
   // Stepper 0
@@ -104,6 +115,15 @@ void setup() {
   pinConfig2.HOME_SENSOR_PIN = 34;
   stepper2.ConfigurePin(pinConfig2);
 
+  // Stepper 3
+  PinConfig pinConfig3;
+  pinConfig3.EN_PIN = 12;
+  pinConfig3.DIR_PIN = 15;
+  pinConfig3.STEP_PIN = 0;
+  pinConfig3.CS_PIN = SS3;
+  pinConfig3.HOME_SENSOR_PIN = 35;
+  stepper3.ConfigurePin(pinConfig3);
+
   /* ================================== Init stepper ================================== */
   stepper0.InitSPI(&tmc2240spi);
   stepper0.Initialize();
@@ -111,25 +131,14 @@ void setup() {
   stepper1.Initialize();
   stepper2.InitSPI(&tmc2240spi);
   stepper2.Initialize();
+  stepper3.InitSPI(&tmc2240spi);
+  stepper3.Initialize();
 
   /* ============================= Pass stepper0 into comm ============================= */
   comm.initStepper(0, &stepper0);
   comm.initStepper(1, &stepper1);
   comm.initStepper(2, &stepper2);
-
-  /* ==================================== Init LED ==================================== */
-  // pinMode(LED_PIN, OUTPUT);
-
-  /* =============================== Run stepper0 thread =============================== */
-  // ! WRONG METHOD
-  // xTaskCreatePinnedToCore(runStepper,   // Function to implement the task
-  //                         "runStepper", // Name of the task
-  //                         1000,         // Stack size in bytes
-  //                         NULL,         // Task input parameter
-  //                         0,            // Priority of the task
-  //                         NULL,         // Task handle.
-  //                         0             // Core where the task should Run
-  // );
+  comm.initStepper(3, &stepper3);
 
   /* ================================= Timer Interrupt ================================ */
   timer0 = timerBegin(0, 80, true);                // timer0 0, prescalar: 80, UP counting. 1 tick = 1us
@@ -147,6 +156,11 @@ void setup() {
   timerAlarmWrite(timer2, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
   timerAlarmEnable(timer2);                        // Enable Timer0 with interrupt (Alarm Enable)
 
+  timer3 = timerBegin(3, 80, true);                // timer0 0, prescalar: 80, UP counting. 1 tick = 1us
+  timerAttachInterrupt(timer3, &onTimer3, true);   // Attach interrupt
+  timerAlarmWrite(timer3, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
+  timerAlarmEnable(timer3);                        // Enable Timer0 with interrupt (Alarm Enable)
+
   comm.init(&Serial);
 }
 
@@ -154,9 +168,12 @@ void loop() {
   /* =================================== Read serial ================================== */
   comm.readSerial();
 
+  /* ================================== Compute Step ================================== */
   unsigned long stepDelay0 = stepper0.ComputeTimePeriod();
   unsigned long stepDelay1 = stepper1.ComputeTimePeriod();
   unsigned long stepDelay2 = stepper2.ComputeTimePeriod();
+  unsigned long stepDelay3 = stepper3.ComputeTimePeriod();
+
   /* ==================================== Stepper 0 =================================== */
 
   portENTER_CRITICAL(&timerMux0);
@@ -190,4 +207,15 @@ void loop() {
     timerAlarmWrite(timer2, ISR_TIME_DEFAULT, true);
   }
   portEXIT_CRITICAL(&timerMux2);
+
+  /* ==================================== Stepper 3 =================================== */
+  portENTER_CRITICAL(&timerMux3);
+  if (stepDelay3 > 0) {
+    run3 = true;
+    timerAlarmWrite(timer3, stepDelay3, true);
+  } else {
+    run3 = false;
+    timerAlarmWrite(timer3, ISR_TIME_DEFAULT, true);
+  }
+  portEXIT_CRITICAL(&timerMux3);
 }

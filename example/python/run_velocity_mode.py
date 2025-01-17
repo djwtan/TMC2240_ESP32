@@ -34,6 +34,7 @@ if __name__ == "__main__":
     init_driver(0x00)
     init_driver(0x01)
     init_driver(0x02)
+    # init_driver(0x03)
 
     # =============================== Run stepper at n rpm =============================== #
     rpm = 1000  # 10 - 2400
@@ -51,31 +52,21 @@ if __name__ == "__main__":
     stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x02)
     stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
 
+    # rpm = 200  # 10 - 2400
+    # stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x03)  # dummy value
+    # stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x03)
+    # stepper_controller.write(Register.MOVE, stepper_id=0x03)  # needs to be called to initialize movement
+
     while True:
         try:
-            # target_pos = stepper_controller.read(Register.TARGET_POSITION, stepper_id=0x00)
-            # current_pos = stepper_controller.read(Register.CURRENT_POS, stepper_id=0x00)
-            # print("POS {} : {}".format(current_pos, target_pos))
-            # target_pos = stepper_controller.read(Register.TARGET_POSITION, stepper_id=0x01)
-            # current_pos = stepper_controller.read(Register.CURRENT_POS, stepper_id=0x01)
-            # print("POS {} : {}".format(current_pos, target_pos))
-            # target_pos = stepper_controller.read(Register.TARGET_POSITION, stepper_id=0x02)
-            # current_pos = stepper_controller.read(Register.CURRENT_POS, stepper_id=0x02)
-            # print("POS {} : {}".format(current_pos, target_pos))
-
-            # target_rpm = stepper_controller.read(Register.TARGET_RPM)
-            # current_rpm = stepper_controller.read(Register.CURRENT_RPM)
-            # print("RPM {} : {}".format(current_rpm, target_rpm))
-
-            # res = stepper_controller.read(Register.STALL_VALUE)
-            # print(res)
-
             motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x00)
             print("{}".format(motor_status))
             motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x01)
             print("{}".format(motor_status))
             motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x02)
             print("{}".format(motor_status))
+            # motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x03)
+            # print("{}".format(motor_status))
 
         except KeyboardInterrupt:
             break
@@ -83,4 +74,4 @@ if __name__ == "__main__":
     stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x00)
     stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x01)
     stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x02)
-    # stepper_controller.write(Register.EMERGENCY_STOP)
+    # stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x03)

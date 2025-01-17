@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # res = stepper_controller.read(Register.RUNNING_CURRENT, 0x00)
     # print(res)
     # res = stepper_controller.read(Register.RUNNING_CURRENT, 0x01)
-    res = stepper_controller.write(Register.ENABLE_STEPPER, 0x01)
+    res = stepper_controller.write(Register.ENABLE_STEPPER, 0x02)
     print(res)
 
     # res = stepper_controller.write(Register.MICROSTEPPING, 1)

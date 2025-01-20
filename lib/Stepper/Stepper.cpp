@@ -81,89 +81,76 @@ String Stepper::HandleRead(uint8_t reg) {
 
   switch (reg) {
   case REG_TARGET_POSITION:
-    result = String(targetPOS);
+    result = convertTo32BitBinaryString(targetPOS);
     break;
   case REG_TARGET_RPM:
-    result = String(targetRPM);
-    break;
-  case REG_MOVE:
-    result = NO_READ_REGISTER;
+    result = convertTo32BitBinaryString(targetRPM);
     break;
   case REG_TEMPERATURE:
-    result = String(this->ReadTemperature());
+    result = convertTo32BitBinaryString(this->ReadTemperature());
     break;
   case REG_DRV_STATUS:
-    result = String(this->ReadStatus());
+    result = convertTo32BitBinaryString(this->ReadStatus());
     break;
   case REG_MOTOR_STATUS:
-    result = String(this->ReadMotorState());
-    break;
-  case REG_EMERGENCY_STOP:
-    result = NO_READ_REGISTER;
-    break;
-  case REG_STOP_VELOCITY:
-    result = NO_READ_REGISTER;
-    break;
-  case REG_ENABLE_STEPPER:
-    result = NO_READ_REGISTER;
+    result = convertTo32BitBinaryString(get_MotorState(motorState));
     break;
   case REG_OPERATION_MODE:
-    result = get_OperationMode(opMode);
+    result = convertTo32BitBinaryString(get_OperationMode(opMode));
     break;
   case REG_ACEL_TIME:
-    result = String(timeAcel_ms);
+    result = convertTo32BitBinaryString(timeAcel_ms);
     break;
   case REG_DECEL_TIME:
-    result = String(timeDecel_ms);
+    result = convertTo32BitBinaryString(timeDecel_ms);
     break;
   case REG_CURRENT_RPM:
-    result = String(currentRPM);
+    result = convertTo32BitBinaryString(currentRPM);
     break;
   case REG_CURRENT_POS:
-    result = String(currentPOS);
+    result = convertTo32BitBinaryString(currentPOS);
     break;
   case REG_ACTUAL_ACCELERATION_TIME:
-    result = String(actualAcelTime);
+    result = convertTo32BitBinaryString(actualAcelTime);
     break;
   case REG_ACTUAL_DECCELERATION_TIME:
-    result = String(actualDecelTime);
+    result = convertTo32BitBinaryString(actualDecelTime);
     break;
   case REG_STOP_ON_STALL:
-    result = stopOnStall ? "stopOnStall is true" : "stopOnStall is false";
+    result = convertTo32BitBinaryString(stopOnStall ? 1 : 0);
     break;
   case REG_MICROSTEPPING:
-    result = String(microstep);
+    result = convertTo32BitBinaryString(microstep);
     break;
   case REG_RUNNING_CURRENT:
-    result = String(runningCurrent);
+    result = convertTo32BitBinaryString(runningCurrent);
     break;
   case REG_HOLDING_CURRENT_PERCENTAGE:
-    result = String(holdingCurrentPercentage);
-    break;
-  case REG_DISABLE_STEPPER:
-    result = NO_READ_REGISTER;
+    result = convertTo32BitBinaryString(holdingCurrentPercentage);
     break;
   case REG_STALL_VALUE:
-    result = String(this->ReadStallValue());
+    result = convertTo32BitBinaryString(this->ReadStallValue());
     break;
   case REG_HOMING_METHOD:
-    result = String(get_HomingMethod(homingMethod));
+    result = convertTo32BitBinaryString(get_HomingMethod(homingMethod));
     break;
   case REG_HOMING_SENSOR_TRIGGER_VALUE:
-    result = sensorHomeValue ? "high" : "low";
+    result = convertTo32BitBinaryString(sensorHomeValue ? 1 : 0);
     break;
   case REG_REQUEST_HOMING:
-    result = runHoming ? "yes" : "no";
+    result = convertTo32BitBinaryString(runHoming ? 1 : 0);
     break;
   case REG_HOMED:
-    result = homed ? "yes" : "no";
+    result = convertTo32BitBinaryString(homed ? 1 : 0);
+    break;
+  case REG_POSITIONING_MODE:
+    result = convertTo32BitBinaryString(get_PositioningMode(posMode));
     break;
   default:
-    result = INVALID_REGISTER;
+    result = convertTo32BitBinaryString(INVALID_REGISTER);
   }
 
-  // return result;
-  return _GenerateMessage() + result;
+  return result;
 }
 
 float Stepper::ReadTemperature() {
@@ -190,32 +177,21 @@ uint8_t Stepper::ReadStatus() {
   return status;
 }
 
-String Stepper::ReadMotorState() { return get_MotorState(motorState); }
-
 /* ================================================================================== */
 /*                                        WRITE                                       */
 /* ================================================================================== */
 String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
-  String result;
+  uint32_t result;
 
   switch (reg) {
   case REG_TARGET_POSITION:
-    result = this->WriteTargetPosition((int32_t)data);
+    result = this->SetTargetPosition((int32_t)data);
     break;
   case REG_TARGET_RPM:
-    result = this->WriteTargetRPM(data);
+    result = this->SetTargetRPM(data);
     break;
   case REG_MOVE:
     result = this->Move();
-    break;
-  case REG_TEMPERATURE:
-    result = NO_WRITE_REGISTER;
-    break;
-  case REG_DRV_STATUS:
-    result = NO_WRITE_REGISTER;
-    break;
-  case REG_MOTOR_STATUS:
-    result = NO_WRITE_REGISTER;
     break;
   case REG_EMERGENCY_STOP:
     result = this->EmergencyStop();
@@ -235,17 +211,8 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   case REG_DECEL_TIME:
     result = this->SetDeccelerationTime(data);
     break;
-  case REG_CURRENT_RPM:
-    result = NO_WRITE_REGISTER;
-    break;
   case REG_CURRENT_POS:
-    result = this->WriteCurrentPosition(data);
-    break;
-  case REG_ACTUAL_ACCELERATION_TIME:
-    result = NO_WRITE_REGISTER;
-    break;
-  case REG_ACTUAL_DECCELERATION_TIME:
-    result = NO_WRITE_REGISTER;
+    result = this->SetCurrentPosition(data);
     break;
   case REG_STOP_ON_STALL:
     result = this->SetStopOnStall(data);
@@ -262,9 +229,6 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   case REG_DISABLE_STEPPER:
     result = this->DisableStepper();
     break;
-  case REG_STALL_VALUE:
-    result = NO_WRITE_REGISTER;
-    break;
   case REG_HOMING_METHOD:
     result = this->SetHomingMethod(data);
     break;
@@ -274,26 +238,25 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   case REG_REQUEST_HOMING:
     result = this->RequestHoming(data);
     break;
-  case REG_HOMED:
-    result = NO_WRITE_REGISTER;
+  case REG_POSITIONING_MODE:
+    result = this->SetPositioningMode(data);
     break;
   default:
     result = INVALID_REGISTER;
   }
-  return result;
-  // return _GenerateMessage() + result;
+  return convertTo32BitBinaryString(result);
 }
 
-String Stepper::WriteTargetPosition(int32_t pos) {
+uint32_t Stepper::SetTargetPosition(int32_t pos) {
   uint32_t previousValue = targetPOS;
 
   switch (opMode) {
   case OpMode::POSITION:
-    switch (posCmdMode) {
-    case PosCmdMode::ABSOLUTE:
+    switch (posMode) {
+    case PositioningMode::ABSOLUTE:
       targetPOSHold = pos;
       break;
-    case PosCmdMode::RELATIVE:
+    case PositioningMode::RELATIVE:
       targetPOSHold = currentPOS + pos;
       break;
     }
@@ -303,19 +266,19 @@ String Stepper::WriteTargetPosition(int32_t pos) {
     targetPOSHold += pos >= 0 ? DUMMY_POSITIVE : DUMMY_NEGATIVE; // dummy value
   }
 
-  return "target position " + String(previousValue) + " -> " + String(targetPOSHold);
+  return WRITE_SUCCESS;
 }
 
-String Stepper::WriteCurrentPosition(int32_t pos) {
+uint32_t Stepper::SetCurrentPosition(int32_t pos) {
   uint32_t previousValue = currentPOS;
 
   // switch (opMode) {
   // case OpMode::POSITION:
-  //   switch (posCmdMode) {
-  //   case PosCmdMode::ABSOLUTE:
+  //   switch (posMode) {
+  //   case PositioningMode::ABSOLUTE:
   //     targetPOS = pos;
   //     break;
-  //   case PosCmdMode::RELATIVE:
+  //   case PositioningMode::RELATIVE:
   //     targetPOS = currentPOS + pos;
   //     break;
   //   }
@@ -330,274 +293,289 @@ String Stepper::WriteCurrentPosition(int32_t pos) {
   // return "target position " + String(previousValue) + " -> " + String(targetPOS);
 
   // targetPOS = pos;
-  return "ignore first";
+  return WRITE_SUCCESS;
 }
 
-String Stepper::WriteTargetRPM(uint32_t rpm) {
-  uint32_t previousValue = targetRPM;
+uint32_t Stepper::SetTargetRPM(uint32_t rpm) {
   targetRPM_Hold = rpm;
-  return "target rpm " + String(previousValue) + " -> " + String(targetRPM_Hold);
+  return WRITE_SUCCESS;
 }
 
-String Stepper::Move() {
-  if (enabled) {
-    // Assign Settings
-    targetRPM = targetRPM_Hold;
-    targetPOS = targetPOSHold;
-    s_0 = currentPOS;
-    v_0 = currentRPM;
-    sTotal = _abs(targetPOS - s_0);
+uint32_t Stepper::Move() {
+  if (!enabled)
+    return WRITE_FAIL;
 
-    // Compute Parameters
-    this->_ComputeAccelerationParameters();
-    this->_ComputeDeccelerationParameters(targetRPM);
+  // Assign Settings
+  targetRPM = targetRPM_Hold;
+  targetPOS = targetPOSHold;
+  s_0 = currentPOS;
+  v_0 = currentRPM;
+  sTotal = _abs(targetPOS - s_0);
 
-    // Set time
-    t_0 = micros();
+  // Compute Parameters
+  this->_ComputeAccelerationParameters();
+  this->_ComputeDeccelerationParameters(targetRPM);
 
-    return "Move executed";
-  }
-  return "enable stepper first";
+  // Set time
+  t_0 = micros();
+
+  return WRITE_SUCCESS;
 }
 
-String Stepper::EmergencyStop() {
+uint32_t Stepper::EmergencyStop() {
   digitalWrite(m_pinConfig.EN_PIN, HIGH); // releases axis
   enabled = false;
-  return "stopped";
+  return WRITE_SUCCESS;
 }
 
-String Stepper::StopVelocity() {
-  if ((opMode == OpMode::VELOCITY)) {
-    if (currentRPM == targetRPM)
-      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
-    else if (currentRPM != 0) {
-      this->_ComputeDeccelerationParameters(currentRPM);
-      currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
-    }
-    return "stop received";
+uint32_t Stepper::StopVelocity() {
+  if (opMode != OpMode::VELOCITY)
+    return WRITE_FAIL;
+
+  if (currentRPM == targetRPM)
+    currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
+  else if (currentRPM != 0) {
+    this->_ComputeDeccelerationParameters(currentRPM);
+    currentPOS = targetPOS > 0 ? targetPOS - sDecel : targetPOS + sDecel;
   }
-  return "not in velocity mode";
+  return WRITE_SUCCESS;
 }
 
-String Stepper::EnableStepper() {
-  if (!enabled) {
-    // Reset Motion Commands
-    targetRPM = 0;
-    targetPOS = 0;
-    currentPOS = 0;
-    currentRPM = 0;
+uint32_t Stepper::EnableStepper() {
+  // Already enabled
+  if (enabled)
+    return WRITE_SUCCESS;
 
-    // Enable Driver
-    digitalWrite(m_pinConfig.EN_PIN, LOW); // enable axis
+  // Reset Motion Commands
+  targetRPM = 0;
+  targetPOS = 0;
+  currentPOS = 0;
+  currentRPM = 0;
 
-    bool res;
+  // Enable Driver
+  digitalWrite(m_pinConfig.EN_PIN, LOW); // enable axis
 
-    // Reinitialize
-    this->Initialize(&res);
+  bool res;
 
-    if (res) { // Set flag to True
-      return "stepper enabled";
-    }
-    return "failed to enable stepper";
+  // Reinitialize
+  this->Initialize(&res);
+
+  if (res) { // Set flag to True
+    return WRITE_SUCCESS;
   }
-  return "stepper already enabled";
+  return WRITE_FAIL;
 }
 
-String Stepper::DisableStepper() {
-  if (motorState == MotorState::IDLE) {
-    (m_pinConfig.EN_PIN, HIGH);
-    enabled = false;
-    return "stepper disabled";
+uint32_t Stepper::DisableStepper() {
+  // Can only disable in idle state
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
+
+  (m_pinConfig.EN_PIN, HIGH);
+  enabled = false;
+  return WRITE_SUCCESS;
+}
+
+uint32_t Stepper::SetOperationMode(uint32_t mode) {
+  // Can only set in idle state
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
+
+  switch (mode) {
+  case 0:
+    opMode = OpMode::POSITION;
+    break;
+  case 1:
+    opMode = OpMode::VELOCITY;
+    break;
+  case 2:
+    opMode = OpMode::INVERSE_TIME;
+    break;
+  default:
+    return WRITE_FAIL;
   }
-  return "stepper can only be manually disabled in idle state";
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetOperationMode(uint32_t mode) {
-  String previousValue = get_OperationMode(opMode);
+uint32_t Stepper::SetPositioningMode(uint32_t mode) {
+  // Can only set in idle state
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
 
-  if (motorState == MotorState::IDLE) {
-    switch (mode) {
-    case 0:
-      opMode = OpMode::POSITION;
-      break;
-    case 1:
-      opMode = OpMode::VELOCITY;
-      break;
-    case 2:
-      opMode = OpMode::INVERSE_TIME;
-      break;
-    default:
-      return "invalid mode";
-    }
-    return previousValue + " -> " + get_OperationMode(opMode);
+  switch (mode) {
+  case 0:
+    posMode = PositioningMode::ABSOLUTE;
+    break;
+  case 1:
+    posMode = PositioningMode::RELATIVE;
+    break;
+  default:
+    return WRITE_FAIL;
   }
-  return "operation mode can only be toggled in idle state";
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetAccelerationTime(uint32_t millis) {
-  long previousValue = timeAcel_ms;
-
+uint32_t Stepper::SetAccelerationTime(uint32_t millis) {
   timeAcel_ms = (double)millis * 1000;
 
-  return "time acel " + String(previousValue) + " -> " + String(timeAcel_ms);
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetDeccelerationTime(uint32_t millis) {
-  long previousValue = timeDecel_ms;
-
+uint32_t Stepper::SetDeccelerationTime(uint32_t millis) {
   timeDecel_ms = (double)millis * 1000;
 
-  return "time decel " + String(previousValue) + " -> " + String(timeDecel_ms);
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetStopOnStall(uint32_t userInput) {
+uint32_t Stepper::SetStopOnStall(uint32_t userInput) {
   switch (userInput) {
   case 0:
     stopOnStall = false;
-    return "stopOnStall flag set to false";
+    break;
   case 1:
     stopOnStall = true;
-    return "stopOnStall flag set to true";
+    break;
   default:
-    return "invalid input";
+    return WRITE_FAIL;
   }
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetMicrostepping(uint32_t userInput) {
-  if (motorState == MotorState::IDLE) {
-    // if (0 < userInput <= 31) {
-    //   runningCurrent = userInput;
-    //   holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+uint32_t Stepper::SetMicrostepping(uint32_t userInput) {
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
 
-    switch (userInput) {
-    case 1:
-      microstep = 1;
-      break;
-    case 2:
-      microstep = 2;
-      break;
-    case 4:
-      microstep = 4;
-      break;
-    case 8:
-      microstep = 8;
-      break;
-    case 16:
-      microstep = 16;
-      break;
-    case 32:
-      microstep = 32;
-      break;
-    case 64:
-      microstep = 64;
-      break;
-    case 128:
-      microstep = 128;
-      break;
-    default:
-      return "Microstep must be 2^n (max 128)";
-    }
-
-    bool res;
-
-    // Reinitialize
-    this->Initialize(&res);
-
-    if (res) { // Set flag to True
-      return "Microstep: " + String(microstep);
-    }
-
-    return "Failed to write microstep to driver";
+  switch (userInput) {
+  case 1:
+    microstep = 1;
+    break;
+  case 2:
+    microstep = 2;
+    break;
+  case 4:
+    microstep = 4;
+    break;
+  case 8:
+    microstep = 8;
+    break;
+  case 16:
+    microstep = 16;
+    break;
+  case 32:
+    microstep = 32;
+    break;
+  case 64:
+    microstep = 64;
+    break;
+  case 128:
+    microstep = 128;
+    break;
+  default:
+    return WRITE_FAIL;
   }
-  return "Microstep can only be modified in idle mode";
+
+  bool res;
+
+  // Reinitialize
+  this->Initialize(&res);
+
+  if (res) { // Set flag to True
+    return WRITE_SUCCESS;
+  }
+
+  return WRITE_FAIL;
 }
 
-String Stepper::SetRunningCurrent(uint32_t userInput) {
-  if (motorState == MotorState::IDLE) {
-    if (0 < userInput <= 31) {
-      runningCurrent = userInput;
-      holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+uint32_t Stepper::SetRunningCurrent(uint32_t userInput) {
+  // Require idle
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
 
-      bool res;
+  if (!(0 < userInput <= 31))
+    return WRITE_FAIL;
 
-      // Reinitialize
-      this->Initialize(&res);
+  runningCurrent = userInput;
+  holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
 
-      if (res) { // Set flag to True
-        return "Running current: " + String(runningCurrent);
-      }
+  bool res;
 
-      return "Failed to write running current to driver";
-    }
-    return "Value out of bounds";
+  // Reinitialize
+  this->Initialize(&res);
+
+  if (res) { // Set flag to True
+    return WRITE_SUCCESS;
   }
-  return "Running current can only be modified in idle mode";
+
+  return WRITE_FAIL;
 }
 
-String Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
-  if (motorState == MotorState::IDLE) {
-    if (0 < userInput <= 50) {
-      holdingCurrentPercentage = userInput;
-      holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
+uint32_t Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
+  // Require idle
+  if (motorState != MotorState::IDLE)
+    return WRITE_FAIL;
 
-      bool res;
+  if (!(0 < userInput <= 50))
+    return WRITE_FAIL;
 
-      // Reinitialize
-      this->Initialize(&res);
+  holdingCurrentPercentage = userInput;
+  holdingCurrent = runningCurrent * holdingCurrentPercentage / 100;
 
-      if (res) { // Set flag to True
-        return "Holding current percentage: " + String(holdingCurrentPercentage) + "%";
-      }
+  bool res;
 
-      return "Failed to write holding current percentage to driver";
-    }
-    return "Value out of bounds";
+  // Reinitialize
+  this->Initialize(&res);
+
+  if (res) { // Set flag to True
+    return WRITE_SUCCESS;
   }
-  return "Holding current percentage can only be modified in idle mode";
+
+  return WRITE_FAIL;
 }
 
-String Stepper::SetHomingMethod(uint32_t userInput) {
+uint32_t Stepper::SetHomingMethod(uint32_t userInput) {
   switch (userInput) {
   case 0:
     homingMethod = HomingMethod::IMMEDIATE;
-    return "homing method set to immediate";
+    break;
   case 1:
     homingMethod = HomingMethod::TORQUE;
-    return "homing method set to torque";
+    break;
   case 2:
     homingMethod = HomingMethod::SENSOR;
-    return "homing method set to sensor";
+    break;
   default:
-    return "invalid input";
+    return WRITE_FAIL;
   }
+  return WRITE_SUCCESS;
 }
 
-String Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
+uint32_t Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
   switch (userInput) {
   case 0:
     sensorHomeValue = false;
-    return "sensor home set to LOW";
+    break;
   case 1:
     sensorHomeValue = true;
-    return "sensor home set to HIGH";
+    break;
   default:
-    return "invalid input";
+    return WRITE_FAIL;
   }
+  return WRITE_SUCCESS;
 }
 
-String Stepper::RequestHoming(uint32_t userInput) {
+uint32_t Stepper::RequestHoming(uint32_t userInput) {
   switch (userInput) {
   case 0:
     runHoming = false;
-    return "Homing request cancelled";
+    break;
   case 1:
     homed = false; // reset home flag
     runHoming = true;
-    return "Homing requested. Method: " + get_HomingMethod(homingMethod) +
-           (homingMethod == HomingMethod::SENSOR ? (sensorHomeValue ? "high" : "low") : "");
+    break;
   default:
-    return "invalid input";
+    return WRITE_FAIL;
   }
+  return WRITE_SUCCESS;
 }
 
 void Stepper::Run() {

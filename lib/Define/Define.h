@@ -5,12 +5,9 @@
 
 #define MAX_STEPPER 4
 #define ADDR_CONTROLLER_ID 0
-
-/* ---------------------------------------------------------------------------------- */
-#define NO_READ_REGISTER "write only register"
-#define NO_WRITE_REGISTER "read only register"
-#define WRITE_SUCCESS "write success"
-#define INVALID_REGISTER "invalid register"
+#define WRITE_SUCCESS 0x0000
+#define WRITE_FAIL 0x0001
+#define INVALID_REGISTER 0xFFFF
 
 // COMM
 enum class ReadBack_Key {
@@ -34,35 +31,35 @@ enum class HomingMethod {
   TORQUE,
 };
 
-inline String get_MotorState(MotorState mState) {
+inline int get_MotorState(MotorState mState) {
   switch (mState) {
   case MotorState::STALLED:
-    return "stalled";
+    return 0;
   case MotorState::OVERSPEED:
-    return "overspeed";
+    return 1;
   case MotorState::IDLE:
-    return "idle";
+    return 2;
   case MotorState::RUNNING:
-    return "running";
+    return 3;
   case MotorState::POWER_ERR:
-    return "power_err";
+    return 4;
   case MotorState::NOT_INIT:
-    return "not_init";
+    return 5;
   default:
-    return "err";
+    return 6;
   }
 };
 
-inline String get_HomingMethod(HomingMethod hMethod) {
+inline int get_HomingMethod(HomingMethod hMethod) {
   switch (hMethod) {
   case HomingMethod::IMMEDIATE:
-    return "immediate";
+    return 0;
   case HomingMethod::SENSOR:
-    return "sensor";
+    return 1;
   case HomingMethod::TORQUE:
-    return "torque";
+    return 2;
   default:
-    return "err";
+    return 3;
   }
 };
 
@@ -73,22 +70,40 @@ enum class OpMode {
   INVERSE_TIME,
 };
 
-inline String get_OperationMode(OpMode opMode) {
+inline uint8_t get_OperationMode(OpMode opMode) {
   switch (opMode) {
   case OpMode::POSITION:
-    return "position mode";
+    return 0;
   case OpMode::VELOCITY:
-    return "velocity mode";
+    return 1;
   case OpMode::INVERSE_TIME:
-    return "inverse time mode";
+    return 2;
   default:
-    return "err";
+    return 3;
   }
 }
 
-enum class PosCmdMode {
+enum class PositioningMode {
   RELATIVE,
   ABSOLUTE,
+};
+
+inline uint8_t get_PositioningMode(PositioningMode posMode) {
+  switch (posMode) {
+  case PositioningMode::RELATIVE:
+    return 0;
+  case PositioningMode::ABSOLUTE:
+    return 1;
+  default:
+    return 3;
+  }
+}
+
+struct message {
+  uint8_t instruction;
+  uint8_t stepperId;
+  uint8_t reg;
+  uint32_t data;
 };
 
 #endif

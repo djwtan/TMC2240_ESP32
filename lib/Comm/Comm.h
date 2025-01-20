@@ -1,6 +1,7 @@
 #ifndef COMM_H
 #define COMM_H
 
+#include "Define.h"
 #include "Stepper.h"
 #include <Arduino.h>
 #include <CRC32.h>
@@ -45,7 +46,7 @@ private:
   void pri_writeCmd(uint8_t *reg, uint32_t *w);
 
   // Response
-  void pri_execCmd(uint8_t instruction, uint8_t stepperId, uint8_t reg, uint32_t data);
+  void pri_execCommand(message msg);
 };
 
 #endif

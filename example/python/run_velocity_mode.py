@@ -2,6 +2,11 @@ from comm import *
 
 stepper_controller = ESP32_TMC2240_API(port="COM22")
 
+STEPPER0 = True
+STEPPER1 = True
+STEPPER2 = True
+STEPPER3 = True
+
 
 def init_driver(stepper_id: int):
     # can skip. Needs to be called after stall
@@ -17,7 +22,7 @@ def init_driver(stepper_id: int):
     print(response)
 
     # ================================== Driver Settings ================================= #
-    response = stepper_controller.write(Register.STOP_ON_STALL, 1, stepper_id=stepper_id)  # stop motor on stall
+    response = stepper_controller.write(Register.STOP_ON_STALL, 0, stepper_id=stepper_id)  # stop motor on stall
     print(response)
     response = stepper_controller.write(Register.MICROSTEPPING, 4, stepper_id=stepper_id)
     print(response)
@@ -31,47 +36,63 @@ def init_driver(stepper_id: int):
 
 if __name__ == "__main__":
     # ==================================== Initialize ==================================== #
-    init_driver(0x00)
-    init_driver(0x01)
-    init_driver(0x02)
-    # init_driver(0x03)
+    if STEPPER0:
+        init_driver(0x00)
+    if STEPPER1:
+        init_driver(0x01)
+    if STEPPER2:
+        init_driver(0x02)
+    if STEPPER3:
+        init_driver(0x03)
 
     # =============================== Run stepper at n rpm =============================== #
-    rpm = 1000  # 10 - 2400
-    stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x00)  # dummy value
-    stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x00)
-    stepper_controller.write(Register.MOVE, stepper_id=0x00)  # needs to be called to initialize movement
+    if STEPPER0:
+        rpm = 1000  # 10 - 2400
+        stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x00)  # dummy value
+        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x00)
+        stepper_controller.write(Register.MOVE, stepper_id=0x00)  # needs to be called to initialize movement
 
-    rpm = 200  # 10 - 2400
-    stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x01)  # dummy value
-    stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x01)
-    stepper_controller.write(Register.MOVE, stepper_id=0x01)  # needs to be called to initialize movement
+    if STEPPER1:
+        rpm = 100  # 10 - 2400
+        stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x01)  # dummy value
+        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x01)
+        stepper_controller.write(Register.MOVE, stepper_id=0x01)  # needs to be called to initialize movement
 
-    rpm = 500  # 10 - 2400
-    stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x02)  # dummy value
-    stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x02)
-    stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
+    if STEPPER2:
+        rpm = 1800  # 10 - 2400
+        stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x02)  # dummy value
+        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x02)
+        stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
 
-    # rpm = 200  # 10 - 2400
-    # stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x03)  # dummy value
-    # stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x03)
-    # stepper_controller.write(Register.MOVE, stepper_id=0x03)  # needs to be called to initialize movement
+    if STEPPER3:
+        rpm = 200  # 10 - 2400
+        stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x03)  # dummy value
+        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x03)
+        stepper_controller.write(Register.MOVE, stepper_id=0x03)  # needs to be called to initialize movement
 
     while True:
         try:
-            motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x00)
-            print("{}".format(motor_status))
-            motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x01)
-            print("{}".format(motor_status))
-            motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x02)
-            print("{}".format(motor_status))
-            # motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x03)
-            # print("{}".format(motor_status))
+            if STEPPER0:
+                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x00)
+                print("{}".format(motor_status))
+            if STEPPER1:
+                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x01)
+                print("{}".format(motor_status))
+            if STEPPER2:
+                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x02)
+                print("{}".format(motor_status))
+            if STEPPER3:
+                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x03)
+                print("{}".format(motor_status))
 
         except KeyboardInterrupt:
             break
 
-    stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x00)
-    stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x01)
-    stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x02)
-    # stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x03)
+    if STEPPER0:
+        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x00)
+    if STEPPER1:
+        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x01)
+    if STEPPER2:
+        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x02)
+    if STEPPER3:
+        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x03)

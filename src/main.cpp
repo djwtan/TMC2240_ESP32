@@ -119,7 +119,7 @@ void setup() {
   PinConfig pinConfig3;
   pinConfig3.EN_PIN = 12;
   pinConfig3.DIR_PIN = 15;
-  pinConfig3.STEP_PIN = 0;
+  pinConfig3.STEP_PIN = 32;
   pinConfig3.CS_PIN = SS3;
   pinConfig3.HOME_SENSOR_PIN = 35;
   stepper3.ConfigurePin(pinConfig3);

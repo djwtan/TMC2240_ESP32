@@ -1,11 +1,13 @@
 from comm import *
+import time
 
 stepper_controller = ESP32_TMC2240_API(port="COM22")
 
 if __name__ == "__main__":
     # res = stepper_controller.read(Register.DRV_STATUS, 0x00)
     # print(res)
-
+    stepper_controller.clear_serial_buffer()
+    time.sleep(0.1)
     # res = stepper_controller.read(Register.OPERATION_MODE)
     # res = stepper_controller.read(Register.ACEL_TIME)
     # res = stepper_controller.read(Register.DECEL_TIME)
@@ -14,15 +16,19 @@ if __name__ == "__main__":
     # res = stepper_controller.read(Register.CURRENT_POS)
     # res = stepper_controller.read(Register.ACTUAL_ACCELERATION_TIME)
     # res = stepper_controller.read(Register.ACTUAL_DECCELERATION_TIME)
-    # res = stepper_controller.write(Register.RUNNING_CURRENT, 16, 0x00)
+    res = stepper_controller.read(Register.TEMPERATURE, 0x00)
+    print(res)
+    # res = stepper_controller.read(Register.RUNNING_CURRENT, 0x00)
     # print(res)
     # res = stepper_controller.write(Register.RUNNING_CURRENT, 16, 0x01)
     # print(res)
     # res = stepper_controller.read(Register.RUNNING_CURRENT, 0x00)
     # print(res)
     # res = stepper_controller.read(Register.RUNNING_CURRENT, 0x01)
-    res = stepper_controller.write(Register.ENABLE_STEPPER, 0x02)
-    print(res)
+    # res = stepper_controller.read(Register.CURRENT_RPM, 0x00)
+    # print(res)
+    # res = stepper_controller.write(Register.ENABLE_STEPPER, 0x02)
+    # print(res)
 
     # res = stepper_controller.write(Register.MICROSTEPPING, 1)
     # print(res)

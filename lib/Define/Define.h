@@ -5,9 +5,9 @@
 
 #define MAX_STEPPER 4
 #define ADDR_CONTROLLER_ID 0
-#define WRITE_SUCCESS 0x0000
-#define WRITE_FAIL 0x0001
-#define INVALID_REGISTER 0xFFFF
+#define WRITE_SUCCESS 0x00000000
+#define WRITE_FAIL 0x00000001
+#define INVALID_REGISTER 0xFFFFFFFF
 
 // COMM
 enum class ReadBack_Key {
@@ -31,7 +31,7 @@ enum class HomingMethod {
   TORQUE,
 };
 
-inline int get_MotorState(MotorState mState) {
+static inline uint8_t get_MotorState(MotorState mState) {
   switch (mState) {
   case MotorState::STALLED:
     return 0;
@@ -50,7 +50,7 @@ inline int get_MotorState(MotorState mState) {
   }
 };
 
-inline int get_HomingMethod(HomingMethod hMethod) {
+static inline uint8_t get_HomingMethod(HomingMethod hMethod) {
   switch (hMethod) {
   case HomingMethod::IMMEDIATE:
     return 0;
@@ -70,7 +70,7 @@ enum class OpMode {
   INVERSE_TIME,
 };
 
-inline uint8_t get_OperationMode(OpMode opMode) {
+static inline uint8_t get_OperationMode(OpMode opMode) {
   switch (opMode) {
   case OpMode::POSITION:
     return 0;
@@ -88,7 +88,7 @@ enum class PositioningMode {
   ABSOLUTE,
 };
 
-inline uint8_t get_PositioningMode(PositioningMode posMode) {
+static inline uint8_t get_PositioningMode(PositioningMode posMode) {
   switch (posMode) {
   case PositioningMode::RELATIVE:
     return 0;

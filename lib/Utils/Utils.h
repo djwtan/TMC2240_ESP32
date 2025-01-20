@@ -60,5 +60,4 @@ template <typename T> String convertTo32BitBinaryString(T value) {
 
   return binaryString;
 }
-
 #endif

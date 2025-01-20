@@ -148,6 +148,7 @@ String Stepper::HandleRead(uint8_t reg) {
     break;
   default:
     result = convertTo32BitBinaryString(INVALID_REGISTER);
+    break;
   }
 
   return result;
@@ -491,7 +492,7 @@ uint32_t Stepper::SetRunningCurrent(uint32_t userInput) {
   if (motorState != MotorState::IDLE)
     return WRITE_FAIL;
 
-  if (!(0 < userInput <= 31))
+  if (userInput <= 0 || userInput > 31)
     return WRITE_FAIL;
 
   runningCurrent = userInput;
@@ -514,7 +515,7 @@ uint32_t Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
   if (motorState != MotorState::IDLE)
     return WRITE_FAIL;
 
-  if (!(0 < userInput <= 50))
+  if (userInput <= 0 || userInput > 50)
     return WRITE_FAIL;
 
   holdingCurrentPercentage = userInput;

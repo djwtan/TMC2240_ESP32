@@ -14,6 +14,7 @@ class Register:
     TARGET_POSITION = 0x00
     TARGET_RPM = 0x01
     MOVE = 0x02
+    TEMPERATURE = 0x03
     DRV_STATUS = 0x04
     MOTOR_STATUS = 0x05
     EMERGENCY_STOP = 0x06
@@ -63,6 +64,10 @@ class ESP32_TMC2240_API:
         # Prevents the ESP32 from resetting
         self.ser.setRTS(False)
         self.ser.setDTR(False)
+
+        # Clear log messages
+        self.clear_serial_buffer()
+        time.sleep(0.1)
 
     @staticmethod
     def construct_serial_message(
@@ -114,7 +119,8 @@ class ESP32_TMC2240_API:
         if self.ser.in_waiting > 0:
             response = self.ser.read(self.ser.in_waiting)  # Read all available data
             decoded_response = response.decode("utf-8")  # Decode the byte data to string using UTF-8
-            print(decoded_response)  # Print the decoded string
+
+            return decoded_response
 
     def read_serial(self):
         while True:

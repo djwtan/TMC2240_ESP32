@@ -14,8 +14,8 @@ def init_driver(stepper_id: int):
     print(response)
 
     # ====================== Set acceleration and decceleration time ===================== #
-    acceleration_time = 2
-    decceleration_time = 2
+    acceleration_time = 0.5
+    decceleration_time = 0.5
     response = stepper_controller.write(Register.ACEL_TIME, int(acceleration_time * 1000), stepper_id=stepper_id)
     print(response)
     response = stepper_controller.write(Register.DECEL_TIME, int(decceleration_time * 1000), stepper_id=stepper_id)
@@ -47,27 +47,33 @@ if __name__ == "__main__":
 
     # =============================== Run stepper at n rpm =============================== #
     if STEPPER0:
-        rpm = 1000  # 10 - 2400
+        rpm = 500  # 10 - 2400
         stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x00)  # dummy value
         stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x00)
-        stepper_controller.write(Register.MOVE, stepper_id=0x00)  # needs to be called to initialize movement
 
     if STEPPER1:
-        rpm = 100  # 10 - 2400
+        rpm = 500  # 10 - 2400
         stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x01)  # dummy value
         stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x01)
-        stepper_controller.write(Register.MOVE, stepper_id=0x01)  # needs to be called to initialize movement
 
     if STEPPER2:
-        rpm = 1800  # 10 - 2400
+        rpm = 500  # 10 - 2400
         stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x02)  # dummy value
         stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x02)
-        stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
 
     if STEPPER3:
-        rpm = 200  # 10 - 2400
+        rpm = 500  # 10 - 2400
         stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x03)  # dummy value
         stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x03)
+
+    # ======================================= Move ======================================= #
+    if STEPPER0:
+        stepper_controller.write(Register.MOVE, stepper_id=0x00)  # needs to be called to initialize movement
+    if STEPPER1:
+        stepper_controller.write(Register.MOVE, stepper_id=0x01)  # needs to be called to initialize movement
+    if STEPPER2:
+        stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
+    if STEPPER3:
         stepper_controller.write(Register.MOVE, stepper_id=0x03)  # needs to be called to initialize movement
 
     while True:

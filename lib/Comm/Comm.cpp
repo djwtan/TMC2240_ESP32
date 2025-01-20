@@ -18,7 +18,7 @@ void Comm::readSerial() {
   if (m_serial == nullptr)
     return;
 
-  if (!m_serial->available() > 0)
+  if (m_serial->available() == 0)
     return;
 
   /* ================================ Start Byte Check ================================ */

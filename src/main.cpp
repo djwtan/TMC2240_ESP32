@@ -2,6 +2,7 @@
 #include "Define.h"
 #include "Stepper.h"
 #include "TMC2240_SPI.h"
+#include "esp_log.h"
 #include <Arduino.h>
 #include <ESP32TimerInterrupt.h>
 #include <SPI.h>
@@ -82,8 +83,6 @@ void IRAM_ATTR onTimer3() {
 }
 
 void setup() {
-  Serial.begin(115200);
-
   /* ============================== SPI Comm with driver ============================== */
   SPI.begin(SCK, MISO, MOSI, SS0);
 
@@ -198,7 +197,11 @@ void setup() {
     timerAlarmEnable(timer3);
   } // Enable Timer0 with interrupt (Alarm Enable)
 
+  /* ==================================== Init Comm =================================== */
+  Serial.begin(115200);
   comm.init(&Serial);
+  while (!Serial)
+    delay(100);
 }
 
 void loop() {

@@ -4,7 +4,7 @@ import threading
 
 steppers = [0x00, 0x01, 0x02, 0x03]
 
-# (acceleration, decceleration, position, rpm)
+# (position, rpm, acceleration, decceleration)
 stepper_motion_1 = {
     0x00: (-1, 800, 1000, 1000),
     0x01: (-1, 400, 1000, 1000),

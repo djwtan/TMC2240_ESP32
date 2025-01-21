@@ -3,7 +3,8 @@ import time
 import struct
 import binascii
 import threading
-from typing import Optional
+import queue
+from typing import Optional, List
 
 from .define import *  # Ensure proper imports for constants like START_BYTE, END_BYTE, etc.
 
@@ -31,7 +32,9 @@ class ESP32_TMC2240_API:
         self.ser.setRTS(False)
         self.ser.setDTR(False)
 
-        self.device_id = device_id
+        # Storing
+        self.__device_id = device_id
+        self.__operation_mode = [OpMode.POSITION] * 4
 
         # Clear any residual log messages from the ESP32's serial buffer
         self.clear_serial_buffer()
@@ -59,7 +62,7 @@ class ESP32_TMC2240_API:
         message = bytearray(
             [
                 START_BYTE,  # Start byte
-                self.device_id,  # Device ID
+                self.__device_id,  # Device ID
                 instruction,  # Instruction type
                 stepper_id,  # Stepper ID
                 register,  # Register address
@@ -101,7 +104,7 @@ class ESP32_TMC2240_API:
             # Validate response components
             if (
                 start_byte != START_BYTE
-                or device_id != self.device_id
+                or device_id != self.__device_id
                 or validity != Validity.GOOD_INSTRUCTION
                 or end_byte != END_BYTE
             ):
@@ -169,44 +172,129 @@ class ESP32_TMC2240_API:
         operation_mode: OpMode = OpMode.POSITION,
         positioning_mode: PositioningMode = PositioningMode.ABSOLUTE,
     ) -> bool:
-        res = []
-        res.append(self.write(stepper_id, Register.ENABLE_STEPPER))
-        res.append(self.write(stepper_id, Register.STOP_ON_STALL, 1 if stop_on_stall else 0))
-        res.append(self.write(stepper_id, Register.MICROSTEPPING, microstepping))
-        res.append(self.write(stepper_id, Register.RUNNING_CURRENT, current))
-        res.append(self.write(stepper_id, Register.HOLDING_CURRENT_PERCENTAGE, holding_current_percentage))
-        res.append(self.write(stepper_id, Register.OPERATION_MODE, operation_mode))
-        res.append(self.write(stepper_id, Register.POSITIONING_MODE, positioning_mode))
+        """
+        Initialize a stepper motor with specified settings.
+        Returns True if all operations succeed, otherwise False.
+        """
+        # List of configuration steps with success status
+        results = [
+            self.write(stepper_id, Register.ENABLE_STEPPER),
+            self.write(stepper_id, Register.STOP_ON_STALL, int(stop_on_stall)),
+            self.write(stepper_id, Register.MICROSTEPPING, microstepping),
+            self.write(stepper_id, Register.RUNNING_CURRENT, current),
+            self.write(stepper_id, Register.HOLDING_CURRENT_PERCENTAGE, holding_current_percentage),
+            self.write(stepper_id, Register.OPERATION_MODE, operation_mode),
+            self.write(stepper_id, Register.POSITIONING_MODE, positioning_mode),
+        ]
 
-        return all(item == 1 for item in res)
+        # Verify all operations succeeded
+        if all(results):
+            self.__operation_mode[stepper_id] = operation_mode
+            return True
+
+        return False
 
     def configure_motion(
         self,
         stepper_id: int,
-        acceleration_time_ms: int,
-        decceleration_time_ms: int,
         target_position: int,
         rpm: int,
+        acceleration_time_ms: int = None,
+        decceleration_time_ms: int = None,
     ) -> bool:
-        res = []
-        res.append(self.write(stepper_id, Register.ACEL_TIME, acceleration_time_ms))
-        res.append(self.write(stepper_id, Register.DECEL_TIME, decceleration_time_ms))
-        res.append(self.write(stepper_id, Register.TARGET_POSITION, target_position))
-        res.append(self.write(stepper_id, Register.TARGET_RPM, rpm))
+        """
+        Configure motion parameters for a stepper motor.
+        Returns True if all operations succeed, otherwise False.
+        """
+        results = [
+            self.write(stepper_id, Register.TARGET_POSITION, target_position),
+            self.write(stepper_id, Register.TARGET_RPM, rpm),
+        ]
 
-        return all(item == 1 for item in res)
+        if acceleration_time_ms is not None:
+            results.append(self.write(stepper_id, Register.ACEL_TIME, acceleration_time_ms))
 
-    def is_running(self, stepper_id: int) -> bool:
-        res = self.read(stepper_id, Register.MOTOR_STATUS)
+        if decceleration_time_ms is not None:
+            results.append(self.write(stepper_id, Register.DECEL_TIME, decceleration_time_ms))
 
-        return res is MotorStatus.RUNNING
-
-    def read_motor_status(self, stepper_id: int) -> str:
-        res = self.read(stepper_id, Register.MOTOR_STATUS)
-
-        return MotorStatus.get_name(res)
+        return all(results)
 
     def emergency_stop(self, stepper_id: int) -> bool:
-        res = self.read(stepper_id, Register.EMERGENCY_STOP)
+        """
+        Immediately stop the motor.
+        Returns True if successful, otherwise False.
+        """
+        return self.write(stepper_id, Register.EMERGENCY_STOP) == 1
 
-        return MotorStatus.get_name(res)
+    def enable_stepper(self, stepper_id: int) -> bool:
+        """
+        Enables stepper (clear faults)
+        """
+        res = self.write(stepper_id, Register.ENABLE_STEPPER)
+
+        return res == 1
+
+    def is_running(self, stepper_id: int) -> bool:
+        """
+        Check if the motor is currently running.
+        Returns True if running, otherwise False.
+        """
+        return self.read(stepper_id, Register.MOTOR_STATUS) == MotorStatus.RUNNING
+
+    def is_stalled(self, stepper_id: int) -> bool:
+        """
+        Check if the motor is currently stalled.
+        Returns True if stalled, otherwise False.
+        """
+        return self.read(stepper_id, Register.MOTOR_STATUS) == MotorStatus.STALLED
+
+    # Internal blocker method
+    def __blocker(self, stepper_id: int, result: queue.Queue, stop_event: threading.Event = None):
+        """
+        Block until the motor operation is complete or a stop event is triggered.
+        Puts the result into the provided queue.
+        """
+        # Wait for the motor to stop running or for the stop event
+        while self.is_running(stepper_id):
+            if stop_event and stop_event.is_set():
+                self.emergency_stop(stepper_id)
+                break
+
+        # Read motor status and positions
+        motor_status = self.read(stepper_id, Register.MOTOR_STATUS)
+        final_position = self.read(stepper_id, Register.CURRENT_POS)
+        target_position = self.read(stepper_id, Register.TARGET_POSITION)
+
+        # Validate communication results
+        if motor_status is None or final_position is None or target_position is None:
+            result.put([])
+            return
+
+        # Convert to signed integers if necessary
+        final_position = final_position - 0x100000000 if final_position > 0x7FFFFFF else final_position
+        target_position = target_position - 0x100000000 if target_position > 0x7FFFFFF else target_position
+
+        # Return results as [stepper_id, success, position_error]
+        result.put(
+            [
+                motor_status == MotorStatus.IDLE,
+                target_position - final_position,
+            ]
+        )
+
+    # Position mode blocker
+    def position_mode_blocker(self, stepper_id: int, stop_event: threading.Event = None):
+        """
+        Block until the motor reaches the target position or a stop event is triggered.
+        Returns [success, position_error].
+        """
+        # Ensure the motor is in position mode
+        if self.__operation_mode[stepper_id] != OpMode.POSITION:
+            return None
+
+        result_queue = queue.Queue()
+        worker = threading.Thread(target=self.__blocker, args=(stepper_id, result_queue, stop_event), daemon=True)
+        worker.start()
+        worker.join()
+
+        return result_queue.get()

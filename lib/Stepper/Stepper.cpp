@@ -715,10 +715,15 @@ unsigned long Stepper::ComputeTimePeriod() {
     if (status == 0 || status == 255) {
       this->EmergencyStop();
       this->_UpdateMotorState(MotorState::POWER_ERR);
-    } else if (this->_IsStalled() || (stopOnStall && motorState == MotorState::STALLED)) {
-      if (stopOnStall)
-        this->EmergencyStop();
+      return 0;
+    } else if (stopOnStall && motorState == MotorState::STALLED) {
+      return 0;
+    } else if (this->_IsStalled()) {
       this->_UpdateMotorState(MotorState::STALLED);
+      if (stopOnStall) {
+        this->EmergencyStop();
+        return 0;
+      }
     } else {
       this->_UpdateMotorState(MotorState::RUNNING);
     }

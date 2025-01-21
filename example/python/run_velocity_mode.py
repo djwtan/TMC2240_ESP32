@@ -2,12 +2,26 @@ from comm import *
 import serial
 import threading
 
+steppers = [0x00, 0x01, 0x02, 0x03]
+
 # (acceleration, decceleration, position, rpm)
-stepper_motion = {
-    0x00: (1000, 1000, -1, 800),
-    0x01: (1000, 1000, -1, 400),
-    0x02: (1000, 1000, 1, 800),
-    0x03: (1000, 1000, 1, 800),
+stepper_motion_1 = {
+    0x00: (-1, 800, 1000, 1000),
+    0x01: (-1, 400, 1000, 1000),
+    0x02: (1, 800, 1000, 1000),
+    0x03: (1, 400, 1000, 1000),
+}
+stepper_motion_2 = {
+    0x00: (-1, 400, 1000, 1000),
+    0x01: (-1, 800, 1000, 1000),
+    0x02: (1, 400, 1000, 1000),
+    0x03: (1, 200, 1000, 1000),
+}
+stepper_motion_3 = {
+    0x00: (-1, 50, 1000, 1000),
+    0x01: (-1, 50, 1000, 1000),
+    0x02: (1, 50, 1000, 1000),
+    0x03: (1, 50, 1000, 1000),
 }
 
 
@@ -31,32 +45,39 @@ if __name__ == "__main__":
         print("init failed")
         exit()
 
-    # ================================= Configure Motion ================================= #
-    res = []
-    for stepper in stepper_motion:
-        res.append(stepper_controller.configure_motion(stepper, *stepper_motion[stepper]))
-
-    if not all(res):
-        print("motion configuration failed")
-        exit()
-
-    # ======================================= Move ======================================= #
-    res = []
-    for stepper in stepper_motion:
-        res.append(stepper_controller.write(stepper, Register.MOVE))
-
-    if not all(res):
-        print("move failed")
-        exit()
-    # ==================================== Monitoring ==================================== #
-
     while True:
         try:
-            for stepper in stepper_motion:
-                print("stepper {} -> {}".format(stepper, stepper_controller.read_motor_status(stepper)))
+            choice = input("Enter your choice (1/2/3): ").strip()
+
+            # ===================================== Reenable ===================================== #
+            for stepper in steppers:
+                if stepper_controller.is_stalled(stepper):
+                    stepper_controller.enable_stepper(stepper)
+
+            # ==================================== Run motion ==================================== #
+            if choice == "1":
+                for stepper in steppers:
+                    stepper_controller.configure_motion(stepper, *stepper_motion_1[stepper])
+                for stepper in steppers:
+                    stepper_controller.write(stepper, Register.MOVE)
+
+            elif choice == "2":
+                for stepper in steppers:
+                    stepper_controller.configure_motion(stepper, *stepper_motion_2[stepper])
+                for stepper in steppers:
+                    stepper_controller.write(stepper, Register.MOVE)
+
+            elif choice == "3":
+                for stepper in steppers:
+                    stepper_controller.configure_motion(stepper, *stepper_motion_3[stepper])
+                for stepper in steppers:
+                    stepper_controller.write(stepper, Register.MOVE)
+
+            elif choice == "q":
+                break
 
         except KeyboardInterrupt:
             break
 
-    for stepper in stepper_motion:
+    for stepper in steppers:
         stepper_controller.write(stepper, Register.STOP_VELOCITY)

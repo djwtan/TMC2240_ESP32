@@ -18,6 +18,7 @@ class MotorStatus:
 
     @staticmethod
     def get_name(m_state: int):
+        """for printing only"""
         if m_state == 0:
             return "stall"
         if m_state == 1:

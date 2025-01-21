@@ -3,61 +3,24 @@
 
 #include <Arduino.h>
 
-template <typename T> String convertTo32BitBinaryString(T value) {
-  String binaryString = "";
+template <typename T> uint32_t convertTo32BitBinaryValue(T value) {
+  uint32_t result = 0;
 
-  // Specialize for each type
-  if constexpr (std::is_same<T, uint8_t>::value) {
-    for (int i = 7; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
-    // Pad with leading zeros to make it 32 bits
-    while (binaryString.length() < 32) {
-      binaryString = "0" + binaryString;
-    }
-  } else if constexpr (std::is_same<T, uint16_t>::value) {
-    for (int i = 15; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
-    // Pad with leading zeros to make it 32 bits
-    while (binaryString.length() < 32) {
-      binaryString = "0" + binaryString;
-    }
-  } else if constexpr (std::is_same<T, uint32_t>::value) {
-    for (int i = 31; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
+  if constexpr (std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value) {
+    result = static_cast<uint32_t>(value & 0xFF); // Mask to 8 bits and cast to uint32_t
+  } else if constexpr (std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value) {
+    result = static_cast<uint32_t>(value & 0xFFFF); // Mask to 16 bits and cast to uint32_t
+  } else if constexpr (std::is_same<T, uint32_t>::value || std::is_same<T, int32_t>::value) {
+    result = static_cast<uint32_t>(value); // Already 32 bits, cast directly
   } else if constexpr (std::is_same<T, float>::value) {
     union {
       float f;
       uint32_t i;
     } u;
     u.f = value;
-    for (int i = 31; i >= 0; i--) {
-      binaryString += String((u.i >> i) & 1);
-    }
-  } else if constexpr (std::is_same<T, int8_t>::value) {
-    for (int i = 7; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
-    // Pad with leading zeros to make it 32 bits
-    while (binaryString.length() < 32) {
-      binaryString = "0" + binaryString;
-    }
-  } else if constexpr (std::is_same<T, int16_t>::value) {
-    for (int i = 15; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
-    // Pad with leading zeros to make it 32 bits
-    while (binaryString.length() < 32) {
-      binaryString = "0" + binaryString;
-    }
-  } else if constexpr (std::is_same<T, int32_t>::value) {
-    for (int i = 31; i >= 0; i--) {
-      binaryString += String((value >> i) & 1);
-    }
+    result = u.i; // Interpret the float as uint32_t
   }
 
-  return binaryString;
+  return result;
 }
 #endif

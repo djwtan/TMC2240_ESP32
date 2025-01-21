@@ -76,78 +76,78 @@ void Stepper::Initialize(bool *result) {
 /* ================================================================================== */
 /*                                        READ                                        */
 /* ================================================================================== */
-String Stepper::HandleRead(uint8_t reg) {
-  String result;
+uint32_t Stepper::HandleRead(uint8_t reg) {
+  uint32_t result;
 
   switch (reg) {
   case REG_TARGET_POSITION:
-    result = convertTo32BitBinaryString(targetPOS);
+    result = convertTo32BitBinaryValue(targetPOS);
     break;
   case REG_TARGET_RPM:
-    result = convertTo32BitBinaryString(targetRPM);
+    result = convertTo32BitBinaryValue(targetRPM);
     break;
   case REG_TEMPERATURE:
-    result = convertTo32BitBinaryString(this->ReadTemperature());
+    result = convertTo32BitBinaryValue(this->ReadTemperature());
     break;
   case REG_DRV_STATUS:
-    result = convertTo32BitBinaryString(this->ReadStatus());
+    result = convertTo32BitBinaryValue(this->ReadStatus());
     break;
   case REG_MOTOR_STATUS:
-    result = convertTo32BitBinaryString(get_MotorState(motorState));
+    result = convertTo32BitBinaryValue(get_MotorState(motorState));
     break;
   case REG_OPERATION_MODE:
-    result = convertTo32BitBinaryString(get_OperationMode(opMode));
+    result = convertTo32BitBinaryValue(get_OperationMode(opMode));
     break;
   case REG_ACEL_TIME:
-    result = convertTo32BitBinaryString(timeAcel_ms);
+    result = convertTo32BitBinaryValue(timeAcel_ms);
     break;
   case REG_DECEL_TIME:
-    result = convertTo32BitBinaryString(timeDecel_ms);
+    result = convertTo32BitBinaryValue(timeDecel_ms);
     break;
   case REG_CURRENT_RPM:
-    result = convertTo32BitBinaryString(currentRPM);
+    result = convertTo32BitBinaryValue(currentRPM);
     break;
   case REG_CURRENT_POS:
-    result = convertTo32BitBinaryString(currentPOS);
+    result = convertTo32BitBinaryValue(currentPOS);
     break;
   case REG_ACTUAL_ACCELERATION_TIME:
-    result = convertTo32BitBinaryString(actualAcelTime);
+    result = convertTo32BitBinaryValue(actualAcelTime);
     break;
   case REG_ACTUAL_DECCELERATION_TIME:
-    result = convertTo32BitBinaryString(actualDecelTime);
+    result = convertTo32BitBinaryValue(actualDecelTime);
     break;
   case REG_STOP_ON_STALL:
-    result = convertTo32BitBinaryString(stopOnStall ? 1 : 0);
+    result = convertTo32BitBinaryValue(stopOnStall ? 1 : 0);
     break;
   case REG_MICROSTEPPING:
-    result = convertTo32BitBinaryString(microstep);
+    result = convertTo32BitBinaryValue(microstep);
     break;
   case REG_RUNNING_CURRENT:
-    result = convertTo32BitBinaryString(runningCurrent);
+    result = convertTo32BitBinaryValue(runningCurrent);
     break;
   case REG_HOLDING_CURRENT_PERCENTAGE:
-    result = convertTo32BitBinaryString(holdingCurrentPercentage);
+    result = convertTo32BitBinaryValue(holdingCurrentPercentage);
     break;
   case REG_STALL_VALUE:
-    result = convertTo32BitBinaryString(this->ReadStallValue());
+    result = convertTo32BitBinaryValue(this->ReadStallValue());
     break;
   case REG_HOMING_METHOD:
-    result = convertTo32BitBinaryString(get_HomingMethod(homingMethod));
+    result = convertTo32BitBinaryValue(get_HomingMethod(homingMethod));
     break;
   case REG_HOMING_SENSOR_TRIGGER_VALUE:
-    result = convertTo32BitBinaryString(sensorHomeValue ? 1 : 0);
+    result = convertTo32BitBinaryValue(sensorHomeValue ? 1 : 0);
     break;
   case REG_REQUEST_HOMING:
-    result = convertTo32BitBinaryString(runHoming ? 1 : 0);
+    result = convertTo32BitBinaryValue(runHoming ? 1 : 0);
     break;
   case REG_HOMED:
-    result = convertTo32BitBinaryString(homed ? 1 : 0);
+    result = convertTo32BitBinaryValue(homed ? 1 : 0);
     break;
   case REG_POSITIONING_MODE:
-    result = convertTo32BitBinaryString(get_PositioningMode(posMode));
+    result = convertTo32BitBinaryValue(get_PositioningMode(posMode));
     break;
   default:
-    result = convertTo32BitBinaryString(INVALID_REGISTER);
+    result = convertTo32BitBinaryValue(INVALID_REGISTER);
     break;
   }
 
@@ -181,7 +181,7 @@ uint8_t Stepper::ReadStatus() {
 /* ================================================================================== */
 /*                                        WRITE                                       */
 /* ================================================================================== */
-String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
+uint32_t Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   uint32_t result;
 
   switch (reg) {
@@ -245,7 +245,7 @@ String Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   default:
     result = INVALID_REGISTER;
   }
-  return convertTo32BitBinaryString(result);
+  return result;
 }
 
 uint32_t Stepper::SetTargetPosition(int32_t pos) {

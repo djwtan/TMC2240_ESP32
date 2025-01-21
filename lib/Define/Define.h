@@ -5,8 +5,12 @@
 
 #define MAX_STEPPER 4
 #define ADDR_CONTROLLER_ID 0
-#define WRITE_SUCCESS 0x00000000
-#define WRITE_FAIL 0x00000001
+
+// Response
+#define GOOD_INSTRUCTION 0x01
+#define BAD_INSTRUCTION 0x00
+#define WRITE_SUCCESS 0x00000001
+#define WRITE_FAIL 0x00000000
 #define INVALID_REGISTER 0xFFFFFFFF
 
 // COMM
@@ -104,6 +108,15 @@ struct message {
   uint8_t stepperId;
   uint8_t reg;
   uint32_t data;
+};
+
+struct response {
+  uint8_t start_byte;
+  uint8_t device_id;
+  uint8_t validity;
+  uint32_t result;
+  uint32_t crc;
+  uint8_t end_byte;
 };
 
 #endif

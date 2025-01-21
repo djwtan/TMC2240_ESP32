@@ -1,104 +1,62 @@
 from comm import *
+import serial
+import threading
 
-stepper_controller = ESP32_TMC2240_API(port="COM22")
-
-STEPPER0 = True
-STEPPER1 = True
-STEPPER2 = True
-STEPPER3 = True
-
-
-def init_driver(stepper_id: int):
-    # can skip. Needs to be called after stall
-    response = stepper_controller.write(Register.ENABLE_STEPPER, stepper_id=stepper_id)
-    print(response)
-
-    # ====================== Set acceleration and decceleration time ===================== #
-    acceleration_time = 0.5
-    decceleration_time = 0.5
-    response = stepper_controller.write(Register.ACEL_TIME, int(acceleration_time * 1000), stepper_id=stepper_id)
-    print(response)
-    response = stepper_controller.write(Register.DECEL_TIME, int(decceleration_time * 1000), stepper_id=stepper_id)
-    print(response)
-
-    # ================================== Driver Settings ================================= #
-    response = stepper_controller.write(Register.STOP_ON_STALL, 0, stepper_id=stepper_id)  # stop motor on stall
-    print(response)
-    response = stepper_controller.write(Register.MICROSTEPPING, 4, stepper_id=stepper_id)
-    print(response)
-    response = stepper_controller.write(Register.RUNNING_CURRENT, 31, stepper_id=stepper_id)  # 1-31
-    print(response)
-    response = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 80, stepper_id=stepper_id)  # 0-100
-    print(response)
-    response = stepper_controller.write(Register.OPERATION_MODE, OpMode.VELOCITY, stepper_id=stepper_id)
-    print(response)
+# (acceleration, decceleration, position, rpm)
+stepper_motion = {
+    0x00: (1000, 1000, -1, 800),
+    0x01: (1000, 1000, -1, 400),
+    0x02: (1000, 1000, 1, 800),
+    0x03: (1000, 1000, 1, 800),
+}
 
 
 if __name__ == "__main__":
-    # ==================================== Initialize ==================================== #
-    if STEPPER0:
-        init_driver(0x00)
-    if STEPPER1:
-        init_driver(0x01)
-    if STEPPER2:
-        init_driver(0x02)
-    if STEPPER3:
-        init_driver(0x03)
 
-    # =============================== Run stepper at n rpm =============================== #
-    if STEPPER0:
-        rpm = 500  # 10 - 2400
-        stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x00)  # dummy value
-        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x00)
+    # =============================== Initialize Controller ============================== #
+    comm_port = serial.Serial("COM22", 115200, timeout=1, dsrdtr=None)
+    comm_lock = threading.Lock()
+    device_id = 0x01
 
-    if STEPPER1:
-        rpm = 500  # 10 - 2400
-        stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x01)  # dummy value
-        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x01)
+    stepper_controller = ESP32_TMC2240_API(comm_port, comm_lock, device_id)
 
-    if STEPPER2:
-        rpm = 500  # 10 - 2400
-        stepper_controller.write(Register.TARGET_POSITION, 5000, stepper_id=0x02)  # dummy value
-        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x02)
+    # ================================ Initialize stepper ================================ #
+    res = []
+    res.append(stepper_controller.init_stepper(0, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(1, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(2, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(3, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
 
-    if STEPPER3:
-        rpm = 500  # 10 - 2400
-        stepper_controller.write(Register.TARGET_POSITION, -5000, stepper_id=0x03)  # dummy value
-        stepper_controller.write(Register.TARGET_RPM, rpm, stepper_id=0x03)
+    if not all(res):
+        print("init failed")
+        exit()
+
+    # ================================= Configure Motion ================================= #
+    res = []
+    for stepper in stepper_motion:
+        res.append(stepper_controller.configure_motion(stepper, *stepper_motion[stepper]))
+
+    if not all(res):
+        print("motion configuration failed")
+        exit()
 
     # ======================================= Move ======================================= #
-    if STEPPER0:
-        stepper_controller.write(Register.MOVE, stepper_id=0x00)  # needs to be called to initialize movement
-    if STEPPER1:
-        stepper_controller.write(Register.MOVE, stepper_id=0x01)  # needs to be called to initialize movement
-    if STEPPER2:
-        stepper_controller.write(Register.MOVE, stepper_id=0x02)  # needs to be called to initialize movement
-    if STEPPER3:
-        stepper_controller.write(Register.MOVE, stepper_id=0x03)  # needs to be called to initialize movement
+    res = []
+    for stepper in stepper_motion:
+        res.append(stepper_controller.write(stepper, Register.MOVE))
+
+    if not all(res):
+        print("move failed")
+        exit()
+    # ==================================== Monitoring ==================================== #
 
     while True:
         try:
-            if STEPPER0:
-                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x00)
-                print("{}".format(motor_status))
-            if STEPPER1:
-                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x01)
-                print("{}".format(motor_status))
-            if STEPPER2:
-                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x02)
-                print("{}".format(motor_status))
-            if STEPPER3:
-                motor_status = stepper_controller.read(Register.MOTOR_STATUS, stepper_id=0x03)
-                print("{}".format(motor_status))
+            for stepper in stepper_motion:
+                print("stepper {} -> {}".format(stepper, stepper_controller.read_motor_status(stepper)))
 
         except KeyboardInterrupt:
             break
 
-    if STEPPER0:
-        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x00)
-    if STEPPER1:
-        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x01)
-    if STEPPER2:
-        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x02)
-    if STEPPER3:
-        stepper_controller.write(Register.STOP_VELOCITY, stepper_id=0x03)
+    for stepper in stepper_motion:
+        stepper_controller.write(stepper, Register.STOP_VELOCITY)

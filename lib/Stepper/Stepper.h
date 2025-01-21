@@ -52,13 +52,13 @@ public:
   void Initialize(bool *result = nullptr);
 
   // read
-  String HandleRead(uint8_t reg);
+  uint32_t HandleRead(uint8_t reg);
   float ReadTemperature();
   uint16_t ReadStallValue();
   uint8_t ReadStatus();
 
   // write
-  String HandleWrite(uint8_t reg, uint32_t data);
+  uint32_t HandleWrite(uint8_t reg, uint32_t data);
   uint32_t SetTargetPosition(int32_t pos);
   uint32_t SetCurrentPosition(int32_t pos);
   uint32_t SetTargetRPM(uint32_t rpm);

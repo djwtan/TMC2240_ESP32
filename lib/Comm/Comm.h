@@ -1,6 +1,7 @@
 #ifndef COMM_H
 #define COMM_H
 
+#include "Define.h"
 #include "Stepper.h"
 #include <Arduino.h>
 #include <CRC32.h>
@@ -10,7 +11,6 @@
 #define INSTRUCTION_STEPPER_WRITE 0x01
 #define INSTRUCTION_SYSTEM_READ 0x02
 #define INSTRUCTION_SYSTEM_WRITE 0x03
-
 #define BUFFER_SIZE 32 // arduino -8, esp32 -32
 
 class Comm {
@@ -39,13 +39,14 @@ private:
   bool pri_isEndByte(uint8_t id);
   bool pri_isCorrectId(uint8_t id);
   bool pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData);
+  uint32_t pri_computeCRC32(uint32_t bufData);
 
   // Map command
   void pri_readCmd(uint8_t *reg);
   void pri_writeCmd(uint8_t *reg, uint32_t *w);
 
   // Response
-  void pri_execCmd(uint8_t instruction, uint8_t stepperId, uint8_t reg, uint32_t data);
+  void pri_execCommand(message msg);
 };
 
 #endif

@@ -4,6 +4,7 @@
 #include "Define.h"
 #include "Motion.h"
 #include "TMC2240_SPI.h"
+#include "Utils.h"
 #include <Arduino.h>
 
 #define REG_TARGET_POSITION 0x00
@@ -32,6 +33,7 @@
 #define REG_HOMING_SENSOR_TRIGGER_VALUE 0X17
 #define REG_REQUEST_HOMING 0X18
 #define REG_HOMED 0x19
+#define REG_POSITIONING_MODE 0x1A
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -48,35 +50,34 @@ public:
   void ConfigurePin(PinConfig pin);
   void InitSPI(TMC2240_SPI *tmc2240spi);
   void Initialize(bool *result = nullptr);
-  void SetPositionMode(PosCmdMode posCmdMode); // TODO
 
   // read
-  String HandleRead(uint8_t reg);
+  uint32_t HandleRead(uint8_t reg);
   float ReadTemperature();
   uint16_t ReadStallValue();
   uint8_t ReadStatus();
-  String ReadMotorState();
 
   // write
-  String HandleWrite(uint8_t reg, uint32_t data);
-  String WriteTargetPosition(int32_t pos);
-  String WriteTargetRPM(uint32_t rpm);
-  String Move();
-  String EmergencyStop();
-  String StopVelocity();
-  String EnableStepper();
-  String DisableStepper();
-  String SetOperationMode(uint32_t mode);
-  String SetAccelerationTime(uint32_t millis);
-  String SetDeccelerationTime(uint32_t millis);
-  String WriteCurrentPosition(int32_t pos);
-  String SetStopOnStall(uint32_t userInput);
-  String SetMicrostepping(uint32_t userInput);
-  String SetRunningCurrent(uint32_t userInput);
-  String SetHoldingCurrentPercentage(uint32_t userInput);
-  String SetHomingMethod(uint32_t userInput);
-  String SetHomingSensorTriggerValue(uint32_t userInput);
-  String RequestHoming(uint32_t userInput);
+  uint32_t HandleWrite(uint8_t reg, uint32_t data);
+  uint32_t SetTargetPosition(int32_t pos);
+  uint32_t SetCurrentPosition(int32_t pos);
+  uint32_t SetTargetRPM(uint32_t rpm);
+  uint32_t Move();
+  uint32_t EmergencyStop();
+  uint32_t StopVelocity();
+  uint32_t EnableStepper();
+  uint32_t DisableStepper();
+  uint32_t SetOperationMode(uint32_t mode);
+  uint32_t SetPositioningMode(uint32_t mode);
+  uint32_t SetAccelerationTime(uint32_t millis);
+  uint32_t SetDeccelerationTime(uint32_t millis);
+  uint32_t SetStopOnStall(uint32_t userInput);
+  uint32_t SetMicrostepping(uint32_t userInput);
+  uint32_t SetRunningCurrent(uint32_t userInput);
+  uint32_t SetHoldingCurrentPercentage(uint32_t userInput);
+  uint32_t SetHomingMethod(uint32_t userInput);
+  uint32_t SetHomingSensorTriggerValue(uint32_t userInput);
+  uint32_t RequestHoming(uint32_t userInput);
 
   // action
   void Run();
@@ -91,7 +92,7 @@ private:
   // Operation
   bool enabled{false};
   OpMode opMode{OpMode::POSITION};
-  PosCmdMode posCmdMode{PosCmdMode::RELATIVE};
+  PositioningMode posMode{PositioningMode::ABSOLUTE};
   HomingMethod homingMethod{HomingMethod::IMMEDIATE};
   bool sensorHomeValue{false};
 

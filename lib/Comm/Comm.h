@@ -7,11 +7,11 @@
 #include <CRC32.h>
 
 // Instruction type
-#define INSTRUCTION_STEPPER_READ 0x00
+#define INSTRUCTION_STEPPER_READ  0x00
 #define INSTRUCTION_STEPPER_WRITE 0x01
-#define INSTRUCTION_SYSTEM_READ 0x02
-#define INSTRUCTION_SYSTEM_WRITE 0x03
-#define BUFFER_SIZE 32 // arduino -8, esp32 -32
+#define INSTRUCTION_SYSTEM_READ   0x02
+#define INSTRUCTION_SYSTEM_WRITE  0x03
+#define BUFFER_SIZE               32 // arduino -8, esp32 -32
 
 class Comm {
 public:
@@ -21,7 +21,7 @@ public:
   void initStepper(uint8_t num, Stepper *stepper);
 
 private:
-  Stream *m_serial{nullptr};
+  Stream  *m_serial{nullptr};
   Stepper *steppers[MAX_STEPPER] = {nullptr};
 
   const uint8_t DEVICE_ID{0x01}; // TODO: write EEPROM
@@ -35,10 +35,10 @@ private:
   void pri_read32(uint32_t *w);
 
   // Checks
-  bool pri_isStartByte(uint8_t sB);
-  bool pri_isEndByte(uint8_t id);
-  bool pri_isCorrectId(uint8_t id);
-  bool pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData);
+  bool     pri_isStartByte(uint8_t sB);
+  bool     pri_isEndByte(uint8_t id);
+  bool     pri_isCorrectId(uint8_t id);
+  bool     pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData);
   uint32_t pri_computeCRC32(uint32_t bufData);
 
   // Map command

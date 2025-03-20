@@ -24,14 +24,14 @@ void Stepper::Initialize(bool *result) {
 
   switch (microstep) {
   case 128: ms = 0x1; break;
-  case 64:  ms = 0x2; break;
-  case 32:  ms = 0x3; break;
-  case 16:  ms = 0x4; break;
-  case 8:   ms = 0x5; break;
-  case 4:   ms = 0x6; break;
-  case 2:   ms = 0x7; break;
-  case 1:   ms = 0x8; break;
-  default:  ms = 0x0;
+  case 64 : ms = 0x2; break;
+  case 32 : ms = 0x3; break;
+  case 16 : ms = 0x4; break;
+  case 8  : ms = 0x5; break;
+  case 4  : ms = 0x6; break;
+  case 2  : ms = 0x7; break;
+  case 1  : ms = 0x8; break;
+  default : ms = 0x0;
   }
 
   // Setting TOFF flag & microsteps...
@@ -62,29 +62,29 @@ uint32_t Stepper::HandleRead(uint8_t reg) {
   uint32_t result;
 
   switch (reg) {
-  case REG_TARGET_POSITION:             result = to32Bit(targetPOS); break;
-  case REG_TARGET_RPM:                  result = to32Bit(targetRPM); break;
-  case REG_TEMPERATURE:                 result = to32Bit(this->ReadTemperature()); break;
-  case REG_DRV_STATUS:                  result = to32Bit(this->ReadStatus()); break;
-  case REG_MOTOR_STATUS:                result = to32Bit(get_MotorState(motorState)); break;
-  case REG_OPERATION_MODE:              result = to32Bit(get_OperationMode(opMode)); break;
-  case REG_ACEL_TIME:                   result = to32Bit(timeAcel_ms); break;
-  case REG_DECEL_TIME:                  result = to32Bit(timeDecel_ms); break;
-  case REG_CURRENT_RPM:                 result = to32Bit(currentRPM); break;
-  case REG_CURRENT_POS:                 result = to32Bit(currentPOS); break;
-  case REG_ACTUAL_ACCELERATION_TIME:    result = to32Bit(actualAcelTime); break;
-  case REG_ACTUAL_DECCELERATION_TIME:   result = to32Bit(actualDecelTime); break;
-  case REG_STOP_ON_STALL:               result = to32Bit(stopOnStall ? 1 : 0); break;
-  case REG_MICROSTEPPING:               result = to32Bit(microstep); break;
-  case REG_RUNNING_CURRENT:             result = to32Bit(runningCurrent); break;
-  case REG_HOLDING_CURRENT_PERCENTAGE:  result = to32Bit(holdingCurrentPercentage); break;
-  case REG_STALL_VALUE:                 result = to32Bit(this->ReadStallValue()); break;
-  case REG_HOMING_METHOD:               result = to32Bit(get_HomingMethod(homingMethod)); break;
+  case REG_TARGET_POSITION            : result = to32Bit(targetPOS); break;
+  case REG_TARGET_RPM                 : result = to32Bit(targetRPM); break;
+  case REG_TEMPERATURE                : result = to32Bit(this->ReadTemperature()); break;
+  case REG_DRV_STATUS                 : result = to32Bit(this->ReadStatus()); break;
+  case REG_MOTOR_STATUS               : result = to32Bit(get_MotorState(motorState)); break;
+  case REG_OPERATION_MODE             : result = to32Bit(get_OperationMode(opMode)); break;
+  case REG_ACEL_TIME                  : result = to32Bit(timeAcel_ms); break;
+  case REG_DECEL_TIME                 : result = to32Bit(timeDecel_ms); break;
+  case REG_CURRENT_RPM                : result = to32Bit(currentRPM); break;
+  case REG_CURRENT_POS                : result = to32Bit(currentPOS); break;
+  case REG_ACTUAL_ACCELERATION_TIME   : result = to32Bit(actualAcelTime); break;
+  case REG_ACTUAL_DECCELERATION_TIME  : result = to32Bit(actualDecelTime); break;
+  case REG_STOP_ON_STALL              : result = to32Bit(stopOnStall ? 1 : 0); break;
+  case REG_MICROSTEPPING              : result = to32Bit(microstep); break;
+  case REG_RUNNING_CURRENT            : result = to32Bit(runningCurrent); break;
+  case REG_HOLDING_CURRENT_PERCENTAGE : result = to32Bit(holdingCurrentPercentage); break;
+  case REG_STALL_VALUE                : result = to32Bit(this->ReadStallValue()); break;
+  case REG_HOMING_METHOD              : result = to32Bit(get_HomingMethod(homingMethod)); break;
   case REG_HOMING_SENSOR_TRIGGER_VALUE: result = to32Bit(sensorHomeValue ? 1 : 0); break;
-  case REG_REQUEST_HOMING:              result = to32Bit(runHoming ? 1 : 0); break;
-  case REG_HOMED:                       result = to32Bit(homed ? 1 : 0); break;
-  case REG_POSITIONING_MODE:            result = to32Bit(get_PositioningMode(posMode)); break;
-  default:                              result = to32Bit(INVALID_REGISTER); break;
+  case REG_REQUEST_HOMING             : result = to32Bit(runHoming ? 1 : 0); break;
+  case REG_HOMED                      : result = to32Bit(homed ? 1 : 0); break;
+  case REG_POSITIONING_MODE           : result = to32Bit(get_PositioningMode(posMode)); break;
+  default                             : result = to32Bit(INVALID_REGISTER); break;
   }
 
   return result;
@@ -121,26 +121,26 @@ uint32_t Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   uint32_t result;
 
   switch (reg) {
-  case REG_TARGET_POSITION:             result = this->SetTargetPosition((int32_t)data); break;
-  case REG_TARGET_RPM:                  result = this->SetTargetRPM(data); break;
-  case REG_MOVE:                        result = this->Move(); break;
-  case REG_EMERGENCY_STOP:              result = this->EmergencyStop(); break;
-  case REG_STOP_VELOCITY:               result = this->StopVelocity(); break;
-  case REG_ENABLE_STEPPER:              result = this->EnableStepper(); break;
-  case REG_OPERATION_MODE:              result = this->SetOperationMode(data); break;
-  case REG_ACEL_TIME:                   result = this->SetAccelerationTime(data); break;
-  case REG_DECEL_TIME:                  result = this->SetDeccelerationTime(data); break;
-  case REG_CURRENT_POS:                 result = this->SetCurrentPosition(data); break;
-  case REG_STOP_ON_STALL:               result = this->SetStopOnStall(data); break;
-  case REG_MICROSTEPPING:               result = this->SetMicrostepping(data); break;
-  case REG_RUNNING_CURRENT:             result = this->SetRunningCurrent(data); break;
-  case REG_HOLDING_CURRENT_PERCENTAGE:  result = this->SetHoldingCurrentPercentage(data); break;
-  case REG_DISABLE_STEPPER:             result = this->DisableStepper(); break;
-  case REG_HOMING_METHOD:               result = this->SetHomingMethod(data); break;
+  case REG_TARGET_POSITION            : result = this->SetTargetPosition((int32_t)data); break;
+  case REG_TARGET_RPM                 : result = this->SetTargetRPM(data); break;
+  case REG_MOVE                       : result = this->Move(); break;
+  case REG_EMERGENCY_STOP             : result = this->EmergencyStop(); break;
+  case REG_STOP_VELOCITY              : result = this->StopVelocity(); break;
+  case REG_ENABLE_STEPPER             : result = this->EnableStepper(); break;
+  case REG_OPERATION_MODE             : result = this->SetOperationMode(data); break;
+  case REG_ACEL_TIME                  : result = this->SetAccelerationTime(data); break;
+  case REG_DECEL_TIME                 : result = this->SetDeccelerationTime(data); break;
+  case REG_CURRENT_POS                : result = this->SetCurrentPosition(data); break;
+  case REG_STOP_ON_STALL              : result = this->SetStopOnStall(data); break;
+  case REG_MICROSTEPPING              : result = this->SetMicrostepping(data); break;
+  case REG_RUNNING_CURRENT            : result = this->SetRunningCurrent(data); break;
+  case REG_HOLDING_CURRENT_PERCENTAGE : result = this->SetHoldingCurrentPercentage(data); break;
+  case REG_DISABLE_STEPPER            : result = this->DisableStepper(); break;
+  case REG_HOMING_METHOD              : result = this->SetHomingMethod(data); break;
   case REG_HOMING_SENSOR_TRIGGER_VALUE: result = this->SetHomingSensorTriggerValue(data); break;
-  case REG_REQUEST_HOMING:              result = this->RequestHoming(data); break;
-  case REG_POSITIONING_MODE:            result = this->SetPositioningMode(data); break;
-  default:                              result = INVALID_REGISTER;
+  case REG_REQUEST_HOMING             : result = this->RequestHoming(data); break;
+  case REG_POSITIONING_MODE           : result = this->SetPositioningMode(data); break;
+  default                             : result = INVALID_REGISTER;
   }
   return result;
 }
@@ -270,9 +270,9 @@ uint32_t Stepper::SetOperationMode(uint32_t mode) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (mode) {
-  case 0:  opMode = OpMode::POSITION; break;
-  case 1:  opMode = OpMode::VELOCITY; break;
-  case 2:  opMode = OpMode::INVERSE_TIME; break;
+  case 0 : opMode = OpMode::POSITION; break;
+  case 1 : opMode = OpMode::VELOCITY; break;
+  case 2 : opMode = OpMode::INVERSE_TIME; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -283,8 +283,8 @@ uint32_t Stepper::SetPositioningMode(uint32_t mode) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (mode) {
-  case 0:  posMode = PositioningMode::ABSOLUTE; break;
-  case 1:  posMode = PositioningMode::RELATIVE; break;
+  case 0 : posMode = PositioningMode::ABSOLUTE; break;
+  case 1 : posMode = PositioningMode::RELATIVE; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -304,8 +304,8 @@ uint32_t Stepper::SetDeccelerationTime(uint32_t millis) {
 
 uint32_t Stepper::SetStopOnStall(uint32_t userInput) {
   switch (userInput) {
-  case 0:  stopOnStall = false; break;
-  case 1:  stopOnStall = true; break;
+  case 0 : stopOnStall = false; break;
+  case 1 : stopOnStall = true; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -315,15 +315,15 @@ uint32_t Stepper::SetMicrostepping(uint32_t userInput) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (userInput) {
-  case 1:   microstep = 1; break;
-  case 2:   microstep = 2; break;
-  case 4:   microstep = 4; break;
-  case 8:   microstep = 8; break;
-  case 16:  microstep = 16; break;
-  case 32:  microstep = 32; break;
-  case 64:  microstep = 64; break;
+  case 1  : microstep = 1; break;
+  case 2  : microstep = 2; break;
+  case 4  : microstep = 4; break;
+  case 8  : microstep = 8; break;
+  case 16 : microstep = 16; break;
+  case 32 : microstep = 32; break;
+  case 64 : microstep = 64; break;
   case 128: microstep = 128; break;
-  default:  return WRITE_FAIL;
+  default : return WRITE_FAIL;
   }
 
   bool res;
@@ -382,9 +382,9 @@ uint32_t Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
 
 uint32_t Stepper::SetHomingMethod(uint32_t userInput) {
   switch (userInput) {
-  case 0:  homingMethod = HomingMethod::IMMEDIATE; break;
-  case 1:  homingMethod = HomingMethod::TORQUE; break;
-  case 2:  homingMethod = HomingMethod::SENSOR; break;
+  case 0 : homingMethod = HomingMethod::IMMEDIATE; break;
+  case 1 : homingMethod = HomingMethod::TORQUE; break;
+  case 2 : homingMethod = HomingMethod::SENSOR; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -392,8 +392,8 @@ uint32_t Stepper::SetHomingMethod(uint32_t userInput) {
 
 uint32_t Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
   switch (userInput) {
-  case 0:  sensorHomeValue = false; break;
-  case 1:  sensorHomeValue = true; break;
+  case 0 : sensorHomeValue = false; break;
+  case 1 : sensorHomeValue = true; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;

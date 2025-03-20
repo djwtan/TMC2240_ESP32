@@ -89,7 +89,6 @@ private:
   PinConfig    m_pinConfig;
   TMC2240_SPI *m_spi;
 
-  // Operation
   bool            enabled{false};
   OpMode          opMode{OpMode::POSITION};
   PositioningMode posMode{PositioningMode::ABSOLUTE};

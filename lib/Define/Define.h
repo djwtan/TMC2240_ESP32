@@ -37,22 +37,22 @@ enum class HomingMethod {
 
 static inline uint8_t get_MotorState(MotorState mState) {
   switch (mState) {
-  case MotorState::STALLED:   return 0;
+  case MotorState::STALLED  : return 0;
   case MotorState::OVERSPEED: return 1;
-  case MotorState::IDLE:      return 2;
-  case MotorState::RUNNING:   return 3;
+  case MotorState::IDLE     : return 2;
+  case MotorState::RUNNING  : return 3;
   case MotorState::POWER_ERR: return 4;
-  case MotorState::NOT_INIT:  return 5;
-  default:                    return 6;
+  case MotorState::NOT_INIT : return 5;
+  default                   : return 6;
   }
 };
 
 static inline uint8_t get_HomingMethod(HomingMethod hMethod) {
   switch (hMethod) {
   case HomingMethod::IMMEDIATE: return 0;
-  case HomingMethod::SENSOR:    return 1;
-  case HomingMethod::TORQUE:    return 2;
-  default:                      return 3;
+  case HomingMethod::SENSOR   : return 1;
+  case HomingMethod::TORQUE   : return 2;
+  default                     : return 3;
   }
 };
 
@@ -65,10 +65,10 @@ enum class OpMode {
 
 static inline uint8_t get_OperationMode(OpMode opMode) {
   switch (opMode) {
-  case OpMode::POSITION:     return 0;
-  case OpMode::VELOCITY:     return 1;
+  case OpMode::POSITION    : return 0;
+  case OpMode::VELOCITY    : return 1;
   case OpMode::INVERSE_TIME: return 2;
-  default:                   return 3;
+  default                  : return 3;
   }
 }
 
@@ -81,7 +81,7 @@ static inline uint8_t get_PositioningMode(PositioningMode posMode) {
   switch (posMode) {
   case PositioningMode::RELATIVE: return 0;
   case PositioningMode::ABSOLUTE: return 1;
-  default:                        return 3;
+  default                       : return 3;
   }
 }
 

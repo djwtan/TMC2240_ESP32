@@ -2,11 +2,16 @@ from comm import *
 import serial
 import threading
 
-steppers = [0x00, 0x01, 0x02, 0x03]
+steppers = [
+    0x00,
+    # 0x01,
+    # 0x02,
+    # 0x03,
+]
 
 # (position, rpm, acceleration, decceleration)
 stepper_motion = {
-    0x00: (-1600 * 1, 150, 50, 0),
+    0x00: (720 * 1, 120, 1000, 1000),
     0x01: (1600 * 1, 200, 1000, 1000),
     0x02: (-1600 * 1, 200, 1000, 1000),
     0x03: (1600 * 1, 200, 50, 0),
@@ -15,7 +20,7 @@ stepper_motion = {
 if __name__ == "__main__":
 
     # =============================== Initialize Controller ============================== #
-    comm_port = serial.Serial("COM22", 115200, timeout=1, dsrdtr=None)
+    comm_port = serial.Serial("COM7", 115200, timeout=1, dsrdtr=None)
     comm_lock = threading.Lock()
     device_id = 0x01
 
@@ -26,7 +31,7 @@ if __name__ == "__main__":
     for stepper in steppers:
         res.append(
             stepper_controller.init_stepper(
-                stepper, stop_on_stall=True, operation_mode=OpMode.POSITION, positioning_mode=PositioningMode.RELATIVE
+                stepper, stop_on_stall=False, operation_mode=OpMode.POSITION, positioning_mode=PositioningMode.RELATIVE
             )
         )
 

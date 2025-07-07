@@ -2,18 +2,12 @@
 #include "Define.h"
 #include "Stepper.h"
 #include "TMC2240_SPI.h"
+#include "pins.h"
 #include "esp_log.h"
 #include <Arduino.h>
 #include <ESP32TimerInterrupt.h>
 #include <SPI.h>
 
-#define SCK              18
-#define MISO             19
-#define MOSI             23
-#define SS0              22
-#define SS1              21
-#define SS2              17
-#define SS3              12
 #define ISR_TIME_DEFAULT 500000 // 0.5 seconds
 
 #define CONF_S0 true
@@ -73,12 +67,12 @@ void IRAM_ATTR onTimer3() {
 
 void setup() {
   /* ============================== SPI Comm with driver ============================== */
-  SPI.begin(SCK, MISO, MOSI, SS0);
+  SPI.begin(SCK, MISO, MOSI, S0_CS);
 
-  if (CONF_S0) tmc2240spi.RegisterCSPin(0, SS0);
-  if (CONF_S1) tmc2240spi.RegisterCSPin(1, SS1);
-  if (CONF_S2) tmc2240spi.RegisterCSPin(2, SS2);
-  if (CONF_S3) tmc2240spi.RegisterCSPin(3, SS3);
+  if (CONF_S0) tmc2240spi.RegisterCSPin(0, S0_CS);
+  if (CONF_S1) tmc2240spi.RegisterCSPin(1, S1_CS);
+  if (CONF_S2) tmc2240spi.RegisterCSPin(2, S2_CS);
+  if (CONF_S3) tmc2240spi.RegisterCSPin(3, S3_CS);
 
   /* =================================== Motor Pins =================================== */
   if (CONF_S0) {
@@ -86,7 +80,7 @@ void setup() {
     pinConfig0.EN_PIN          = 14;
     pinConfig0.DIR_PIN         = 16;
     pinConfig0.STEP_PIN        = 33;
-    pinConfig0.CS_PIN          = SS0;
+    pinConfig0.CS_PIN          = S0_CS;
     pinConfig0.HOME_SENSOR_PIN = 36;
     stepper0.ConfigurePin(pinConfig0);
   }
@@ -96,7 +90,7 @@ void setup() {
     pinConfig1.EN_PIN          = 27;
     pinConfig1.DIR_PIN         = 4;
     pinConfig1.STEP_PIN        = 25;
-    pinConfig1.CS_PIN          = SS1;
+    pinConfig1.CS_PIN          = S1_CS;
     pinConfig1.HOME_SENSOR_PIN = 39;
     stepper1.ConfigurePin(pinConfig1);
   }
@@ -106,7 +100,7 @@ void setup() {
     pinConfig2.EN_PIN          = 13;
     pinConfig2.DIR_PIN         = 2;
     pinConfig2.STEP_PIN        = 26;
-    pinConfig2.CS_PIN          = SS2;
+    pinConfig2.CS_PIN          = S2_CS;
     pinConfig2.HOME_SENSOR_PIN = 34;
     stepper2.ConfigurePin(pinConfig2);
   }
@@ -116,7 +110,7 @@ void setup() {
     pinConfig3.EN_PIN          = 5;
     pinConfig3.DIR_PIN         = 15;
     pinConfig3.STEP_PIN        = 32;
-    pinConfig3.CS_PIN          = SS3;
+    pinConfig3.CS_PIN          = S3_CS;
     pinConfig3.HOME_SENSOR_PIN = 35;
     stepper3.ConfigurePin(pinConfig3);
   }

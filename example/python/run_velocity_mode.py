@@ -2,11 +2,16 @@ from comm import *
 import serial
 import threading
 
-steppers = [0x00, 0x01, 0x02, 0x03]
+steppers = [
+    0x00,
+    # 0x01,
+    # 0x02,
+    # 0x03,
+]
 
 # (position, rpm, acceleration, decceleration)
 stepper_motion_1 = {
-    0x00: (-1, 50, 1000, 1000),
+    0x00: (-1, 120, 1000, 1000),
     0x01: (-1, 800, 1000, 1000),
     0x02: (1, 50, 1000, 1000),
     0x03: (1, 800, 1000, 1000),
@@ -28,7 +33,7 @@ stepper_motion_3 = {
 if __name__ == "__main__":
 
     # =============================== Initialize Controller ============================== #
-    comm_port = serial.Serial("COM22", 115200, timeout=1, dsrdtr=None)
+    comm_port = serial.Serial("COM7", 115200, timeout=1, dsrdtr=None)
     comm_lock = threading.Lock()
     device_id = 0x01
 
@@ -36,10 +41,10 @@ if __name__ == "__main__":
 
     # ================================ Initialize stepper ================================ #
     res = []
-    res.append(stepper_controller.init_stepper(0, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
-    res.append(stepper_controller.init_stepper(1, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
-    res.append(stepper_controller.init_stepper(2, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
-    res.append(stepper_controller.init_stepper(3, stop_on_stall=True, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(0, stop_on_stall=False, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(1, stop_on_stall=False, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(2, stop_on_stall=False, operation_mode=OpMode.VELOCITY))
+    res.append(stepper_controller.init_stepper(3, stop_on_stall=False, operation_mode=OpMode.VELOCITY))
 
     if not all(res):
         print("init failed")

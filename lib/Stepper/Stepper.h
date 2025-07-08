@@ -1,13 +1,42 @@
 #ifndef STEPPER_H
 #define STEPPER_H
 
-#include "Define.h"
-#include "Motion.h"
-#include "TMC2240_SPI.h"
-#include "Utils.h"
+#include "Kinematics.h"
 #include "Registers.h"
+#include "TMC2240_SPI.h"
+#include "TMC2240_Registers.h"
+#include "Utils.h"
 #include <Arduino.h>
 
+#define WRITE_SUCCESS    0x00000001
+#define WRITE_FAIL       0x00000000
+#define INVALID_REGISTER 0xFFFFFFFF
+
+enum class MotorState {
+  STALLED,
+  OVERSPEED,
+  IDLE,
+  RUNNING,
+  POWER_ERR,
+  NOT_INIT,
+};
+
+enum class HomingMethod {
+  IMMEDIATE,
+  SENSOR,
+  TORQUE,
+};
+
+enum class OpMode {
+  POSITION,
+  VELOCITY,
+  INVERSE_TIME,
+};
+
+enum class PositioningMode {
+  RELATIVE,
+  ABSOLUTE,
+};
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -63,19 +92,19 @@ private:
   PinConfig    m_pinConfig;
   TMC2240_SPI *m_spi;
 
-  bool            enabled{false};
-  OpMode          opMode{OpMode::POSITION};
-  PositioningMode posMode{PositioningMode::ABSOLUTE};
-  HomingMethod    homingMethod{HomingMethod::IMMEDIATE};
-  bool            sensorHomeValue{false};
+  bool            enabled         = false;
+  OpMode          opMode          = OpMode::POSITION;
+  PositioningMode posMode         = PositioningMode::ABSOLUTE;
+  HomingMethod    homingMethod    = HomingMethod::IMMEDIATE;
+  bool            sensorHomeValue = false;
 
   // Return
   String _GenerateMessage();
 
   // Default
-  const float   MAX_RPM{2400.0f};
-  const int32_t DUMMY_POSITIVE{500000};
-  const int32_t DUMMY_NEGATIVE{-500000};
+  const float   MAX_RPM        = 2400.0f;
+  const int32_t DUMMY_POSITIVE = 500000;
+  const int32_t DUMMY_NEGATIVE = -500000;
 
   // Set
   uint8_t microstep                = 4;
@@ -83,22 +112,22 @@ private:
   uint8_t holdingCurrentPercentage = 50;
   uint8_t holdingCurrent           = runningCurrent * holdingCurrentPercentage / 100;
 
-  int32_t targetPOS{0};
-  int32_t targetPOSHold{0};
-  float   targetRPM{0};
-  float   targetRPM_Hold{0};
-  double  timeAcel_ms{2 * 1000000UL};
-  double  timeDecel_ms{2 * 1000000UL};
-  bool    stopOnStall{false};
-  bool    runHoming{false};
-  bool    homed{false};
+  int32_t targetPOS      = 0;
+  int32_t targetPOSHold  = 0;
+  float   targetRPM      = 0;
+  float   targetRPM_Hold = 0;
+  double  timeAcel_ms    = 2 * 1000000UL;
+  double  timeDecel_ms   = 2 * 1000000UL;
+  bool    stopOnStall    = false;
+  bool    runHoming      = false;
+  bool    homed          = false;
 
   // Test
-  unsigned long actualAcelTime{0};
-  unsigned long actualDecelTime{0};
+  unsigned long actualAcelTime  = 0;
+  unsigned long actualDecelTime = 0;
 
   // ReadBack & MotorState
-  MotorState motorState{MotorState::NOT_INIT};
+  MotorState motorState = MotorState::NOT_INIT;
   void       _UpdateMotorState(MotorState mState);
 
   // StallGuard
@@ -112,30 +141,30 @@ private:
   void _ComputeDeccelerationParameters(float vmax);
 
   // Driven
-  volatile int32_t currentPOS{0};
-  bool             _step{true};
+  volatile int32_t currentPOS = 0;
+  bool             _step      = true;
 
-  float         currentRPM{0.0f};
-  float         peakRPM{0.0f};
-  bool          direction{true};
-  bool          acelerating{false};
-  float         minRPM{10.0f};
-  unsigned long stepDelay{0UL};
-  unsigned long timeStamp{micros()};
-  uint32_t      sAbs{0};
+  float         currentRPM  = 0.0f;
+  float         peakRPM     = 0.0f;
+  bool          direction   = true;
+  bool          acelerating = false;
+  float         minRPM      = 10.0f;
+  unsigned long stepDelay   = 0UL;
+  unsigned long timeStamp   = micros();
+  uint32_t      sAbs        = 0;
 
   // calculation
-  bool          recomputeParam{false};
-  unsigned long t_0{0UL};
-  unsigned long tDecel_0{0UL};
-  int32_t       s_0{0};
-  float         v_0{0.0f};
-  uint32_t      sTotal{0};
-  double        nAcel{0.0};
-  uint32_t      sAcel{0};
-  float         mDecel{0.0f};
-  uint32_t      sDecel{0};
-  uint32_t      sDecelRecomputed{0};
+  bool          recomputeParam   = false;
+  unsigned long t_0              = 0UL;
+  unsigned long tDecel_0         = 0UL;
+  int32_t       s_0              = 0;
+  float         v_0              = 0.0f;
+  uint32_t      sTotal           = 0;
+  double        nAcel            = 0.0;
+  uint32_t      sAcel            = 0;
+  float         mDecel           = 0.0f;
+  uint32_t      sDecel           = 0;
+  uint32_t      sDecelRecomputed = 0;
 
   // Driver Comm
   const uint8_t Toff = {0x01};

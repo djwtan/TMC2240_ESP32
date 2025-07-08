@@ -1,177 +1,75 @@
 #include "Comm.h"
-#include "Define.h"
 #include "Stepper.h"
 #include "TMC2240_SPI.h"
-#include "pins.h"
+#include "config.h"
 #include "esp_log.h"
+#include "pins.h"
 #include <Arduino.h>
-#include <ESP32TimerInterrupt.h>
 #include <SPI.h>
 
-#define ISR_TIME_DEFAULT 500000 // 0.5 seconds
+/* ========================== Constants and Globals =========================== */
+constexpr int MAX_STEPPERS = 4;
 
-#define CONF_S0 true
-#define CONF_S1 true
-#define CONF_S2 true
-#define CONF_S3 true
-
-/* ================================== Communication ================================= */
 Comm        comm;
 TMC2240_SPI tmc2240spi;
 
-/* =============================== Stepper + Interrupt ============================== */
-Stepper       stepper0(0);
-hw_timer_t   *timer0    = NULL;
-portMUX_TYPE  timerMux0 = portMUX_INITIALIZER_UNLOCKED;
-volatile bool run0;
-/* ---------------------------------------------------------------------------------- */
-Stepper       stepper1(1);
-hw_timer_t   *timer1    = NULL;
-portMUX_TYPE  timerMux1 = portMUX_INITIALIZER_UNLOCKED;
-volatile bool run1;
-/* ---------------------------------------------------------------------------------- */
-Stepper       stepper2(2);
-hw_timer_t   *timer2    = NULL;
-portMUX_TYPE  timerMux2 = portMUX_INITIALIZER_UNLOCKED;
-volatile bool run2;
-/* ---------------------------------------------------------------------------------- */
-Stepper       stepper3(3);
-hw_timer_t   *timer3    = NULL;
-portMUX_TYPE  timerMux3 = portMUX_INITIALIZER_UNLOCKED;
-volatile bool run3;
+Stepper     *steppers[MAX_STEPPERS];
+hw_timer_t  *timers[MAX_STEPPERS]     = {nullptr};
+portMUX_TYPE timerMuxes[MAX_STEPPERS] = {portMUX_INITIALIZER_UNLOCKED, portMUX_INITIALIZER_UNLOCKED,
+                                         portMUX_INITIALIZER_UNLOCKED,
+                                         portMUX_INITIALIZER_UNLOCKED};
+volatile bool runFlags[MAX_STEPPERS]  = {false};
+unsigned long stepDelays[MAX_STEPPERS] = {0};
 
-/* ======================================= ISR ====================================== */
+/* ============================= ISR Functions ================================ */
 void IRAM_ATTR onTimer0() {
-  portENTER_CRITICAL_ISR(&timerMux0);
-  if (run0) { stepper0.Run(); }
-  portEXIT_CRITICAL_ISR(&timerMux0);
+  if (runFlags[0]) steppers[0]->Run();
 }
-/* ---------------------------------------------------------------------------------- */
 void IRAM_ATTR onTimer1() {
-  portENTER_CRITICAL_ISR(&timerMux1);
-  if (run1) { stepper1.Run(); }
-  portEXIT_CRITICAL_ISR(&timerMux1);
+  if (runFlags[1]) steppers[1]->Run();
 }
-/* ---------------------------------------------------------------------------------- */
 void IRAM_ATTR onTimer2() {
-  portENTER_CRITICAL_ISR(&timerMux2);
-  if (run2) { stepper2.Run(); }
-  portEXIT_CRITICAL_ISR(&timerMux2);
+  if (runFlags[2]) steppers[2]->Run();
 }
-/* ---------------------------------------------------------------------------------- */
 void IRAM_ATTR onTimer3() {
-  portENTER_CRITICAL_ISR(&timerMux3);
-  if (run3) { stepper3.Run(); }
-  portEXIT_CRITICAL_ISR(&timerMux3);
+  if (runFlags[3]) steppers[3]->Run();
 }
 
+void (*timerISRs[MAX_STEPPERS])() = {onTimer0, onTimer1, onTimer2, onTimer3};
+
+/* =============================== Setup Helper =============================== */
+void setupStepper(int index, PinConfig pinConfig, uint8_t csPin, uint8_t timerNum) {
+  tmc2240spi.RegisterCSPin(index, csPin);
+
+  steppers[index] = new Stepper(index);
+  steppers[index]->ConfigurePin(pinConfig);
+  steppers[index]->InitSPI(&tmc2240spi);
+  steppers[index]->Initialize();
+  comm.initStepper(index, steppers[index]);
+
+  timers[index] = timerBegin(timerNum, 80, true); // 1us per tick
+  timerAttachInterrupt(timers[index], timerISRs[index], true);
+  timerAlarmWrite(timers[index], ISR_TIME_DEFAULT, true);
+  timerAlarmEnable(timers[index]);
+}
+
+/* ================================ Setup ===================================== */
 void setup() {
-  /* ============================== SPI Comm with driver ============================== */
   SPI.begin(SCK, MISO, MOSI, S0_CS);
 
-  if (CONF_S0) tmc2240spi.RegisterCSPin(0, S0_CS);
-  if (CONF_S1) tmc2240spi.RegisterCSPin(1, S1_CS);
-  if (CONF_S2) tmc2240spi.RegisterCSPin(2, S2_CS);
-  if (CONF_S3) tmc2240spi.RegisterCSPin(3, S3_CS);
+#ifdef STEPPER_1
+  setupStepper(0, {S0_EN, S0_DIR, S0_STEP, S0_CS, S0_HOME_SENSOR}, S0_CS, 0);
+#endif
+#ifdef STEPPER_2
+  setupStepper(1, {S1_EN, S1_DIR, S1_STEP, S1_CS, S1_HOME_SENSOR}, S1_CS, 1);
+#endif
+#ifdef STEPPER_3
+  setupStepper(2, {S2_EN, S2_DIR, S2_STEP, S2_CS, S2_HOME_SENSOR}, S2_CS, 2);
+#endif
+#ifdef STEPPER_4
+  setupStepper(3, {S3_EN, S3_DIR, S3_STEP, S3_CS, S3_HOME_SENSOR}, S3_CS, 3);
+#endif
 
-  /* =================================== Motor Pins =================================== */
-  if (CONF_S0) {
-    PinConfig pinConfig0;
-    pinConfig0.EN_PIN          = 14;
-    pinConfig0.DIR_PIN         = 16;
-    pinConfig0.STEP_PIN        = 33;
-    pinConfig0.CS_PIN          = S0_CS;
-    pinConfig0.HOME_SENSOR_PIN = 36;
-    stepper0.ConfigurePin(pinConfig0);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S1) {
-    PinConfig pinConfig1;
-    pinConfig1.EN_PIN          = 27;
-    pinConfig1.DIR_PIN         = 4;
-    pinConfig1.STEP_PIN        = 25;
-    pinConfig1.CS_PIN          = S1_CS;
-    pinConfig1.HOME_SENSOR_PIN = 39;
-    stepper1.ConfigurePin(pinConfig1);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S2) {
-    PinConfig pinConfig2;
-    pinConfig2.EN_PIN          = 13;
-    pinConfig2.DIR_PIN         = 2;
-    pinConfig2.STEP_PIN        = 26;
-    pinConfig2.CS_PIN          = S2_CS;
-    pinConfig2.HOME_SENSOR_PIN = 34;
-    stepper2.ConfigurePin(pinConfig2);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S3) {
-    PinConfig pinConfig3;
-    pinConfig3.EN_PIN          = 5;
-    pinConfig3.DIR_PIN         = 15;
-    pinConfig3.STEP_PIN        = 32;
-    pinConfig3.CS_PIN          = S3_CS;
-    pinConfig3.HOME_SENSOR_PIN = 35;
-    stepper3.ConfigurePin(pinConfig3);
-  }
-
-  /* ================================== Init stepper ================================== */
-  if (CONF_S0) {
-    stepper0.InitSPI(&tmc2240spi);
-    stepper0.Initialize();
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S1) {
-    stepper1.InitSPI(&tmc2240spi);
-    stepper1.Initialize();
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S2) {
-    stepper2.InitSPI(&tmc2240spi);
-    stepper2.Initialize();
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S3) {
-    stepper3.InitSPI(&tmc2240spi);
-    stepper3.Initialize();
-  }
-
-  /* ============================= Pass stepper0 into comm ============================= */
-  if (CONF_S0) comm.initStepper(0, &stepper0);
-  if (CONF_S1) comm.initStepper(1, &stepper1);
-  if (CONF_S2) comm.initStepper(2, &stepper2);
-  if (CONF_S3) comm.initStepper(3, &stepper3);
-
-  /* ================================= Timer Interrupt ================================ */
-  if (CONF_S0) {
-    timer0 = timerBegin(0, 80, true);                // prescalar: 80. 1 tick = 1us
-    timerAttachInterrupt(timer0, &onTimer0, true);   // Attach interrupt
-    timerAlarmWrite(timer0, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
-    timerAlarmEnable(timer0);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S1) {
-    timer1 = timerBegin(1, 80, true);                // prescalar: 80. 1 tick = 1us
-    timerAttachInterrupt(timer1, &onTimer1, true);   // Attach interrupt
-    timerAlarmWrite(timer1, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
-    timerAlarmEnable(timer1);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S2) {
-    timer2 = timerBegin(2, 80, true);                // prescalar: 80. 1 tick = 1us
-    timerAttachInterrupt(timer2, &onTimer2, true);   // Attach interrupt
-    timerAlarmWrite(timer2, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
-    timerAlarmEnable(timer2);
-  }
-  /* ---------------------------------------------------------------------------------- */
-  if (CONF_S3) {
-    timer3 = timerBegin(3, 80, true);                // prescalar: 80. 1 tick = 1us
-    timerAttachInterrupt(timer3, &onTimer3, true);   // Attach interrupt
-    timerAlarmWrite(timer3, ISR_TIME_DEFAULT, true); // With 80 prescalar, 1 tick = 1us
-    timerAlarmEnable(timer3);
-  }
-
-  /* ==================================== Init Comm =================================== */
   Serial.begin(115200);
   comm.init(&Serial);
   while (!Serial) {
@@ -179,69 +77,22 @@ void setup() {
   }
 }
 
+/* ================================== Loop =================================== */
 void loop() {
-  /* =================================== Read serial ================================== */
   comm.readSerial();
-  unsigned long stepDelay0;
-  unsigned long stepDelay1;
-  unsigned long stepDelay2;
-  unsigned long stepDelay3;
 
-  /* ================================== Compute Step ================================== */
-  if (CONF_S0) stepDelay0 = stepper0.ComputeTimePeriod();
-  if (CONF_S1) stepDelay1 = stepper1.ComputeTimePeriod();
-  if (CONF_S2) stepDelay2 = stepper2.ComputeTimePeriod();
-  if (CONF_S3) stepDelay3 = stepper3.ComputeTimePeriod();
+  for (int i = 0; i < MAX_STEPPERS; ++i) {
+    if (!steppers[i]) continue;
 
-  /* ==================================== Stepper 0 =================================== */
-  if (CONF_S0) {
-    portENTER_CRITICAL(&timerMux0);
-    if (stepDelay0 > 0) {
-      run0 = true;
-      timerAlarmWrite(timer0, stepDelay0, true);
+    stepDelays[i] = steppers[i]->ComputeTimePeriod();
+    portENTER_CRITICAL(&timerMuxes[i]);
+    if (stepDelays[i] > 0) {
+      runFlags[i] = true;
+      timerAlarmWrite(timers[i], stepDelays[i], true);
     } else {
-      run0 = false;
-      timerAlarmWrite(timer0, ISR_TIME_DEFAULT, true);
+      runFlags[i] = false;
+      timerAlarmWrite(timers[i], ISR_TIME_DEFAULT, true);
     }
-    portEXIT_CRITICAL(&timerMux0);
-  }
-
-  /* ==================================== Stepper 1 =================================== */
-  if (CONF_S1) {
-    portENTER_CRITICAL(&timerMux1);
-    if (stepDelay1 > 0) {
-      run1 = true;
-      timerAlarmWrite(timer1, stepDelay1, true);
-    } else {
-      run1 = false;
-      timerAlarmWrite(timer1, ISR_TIME_DEFAULT, true);
-    }
-    portEXIT_CRITICAL(&timerMux1);
-  }
-
-  /* ==================================== Stepper 2 =================================== */
-  if (CONF_S2) {
-    portENTER_CRITICAL(&timerMux2);
-    if (stepDelay2 > 0) {
-      run2 = true;
-      timerAlarmWrite(timer2, stepDelay2, true);
-    } else {
-      run2 = false;
-      timerAlarmWrite(timer2, ISR_TIME_DEFAULT, true);
-    }
-    portEXIT_CRITICAL(&timerMux2);
-  }
-
-  /* ==================================== Stepper 3 =================================== */
-  if (CONF_S3) {
-    portENTER_CRITICAL(&timerMux3);
-    if (stepDelay3 > 0) {
-      run3 = true;
-      timerAlarmWrite(timer3, stepDelay3, true);
-    } else {
-      run3 = false;
-      timerAlarmWrite(timer3, ISR_TIME_DEFAULT, true);
-    }
-    portEXIT_CRITICAL(&timerMux3);
+    portEXIT_CRITICAL(&timerMuxes[i]);
   }
 }

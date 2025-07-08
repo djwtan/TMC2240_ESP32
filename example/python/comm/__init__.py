@@ -97,9 +97,9 @@ class ESP32_TMC2240_API:
 
             # Parse the response
             start_byte, device_id, validity = data[:3]
-            result = int.from_bytes(data[3:7], byteorder="big", signed=False)
+            result     = int.from_bytes(data[3:7], byteorder="big", signed=False)
             crc32_recv = int.from_bytes(data[7:11], byteorder="big", signed=False)
-            end_byte = data[11]
+            end_byte   = data[11]
 
             # Validate response components
             if (
@@ -273,6 +273,10 @@ class ESP32_TMC2240_API:
         # Convert to signed integers if necessary
         final_position = final_position - 0x100000000 if final_position > 0x7FFFFFF else final_position
         target_position = target_position - 0x100000000 if target_position > 0x7FFFFFF else target_position
+
+        if target_position - final_position != 0:
+            print(target_position)
+            print(final_position)
 
         # Return results as [stepper_id, success, position_error]
         result.put(

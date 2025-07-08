@@ -76,8 +76,8 @@ uint32_t Stepper::HandleRead(uint8_t reg) {
   case REG_TARGET_RPM                 : result = to32Bit(targetRPM); break;
   case REG_TEMPERATURE                : result = to32Bit(this->ReadTemperature()); break;
   case REG_DRV_STATUS                 : result = to32Bit(this->ReadStatus()); break;
-  case REG_MOTOR_STATUS               : result = to32Bit(motorState); break;
-  case REG_OPERATION_MODE             : result = to32Bit(opMode); break;
+  case REG_MOTOR_STATUS               : result = static_cast<uint32_t>(motorState); break;
+  case REG_OPERATION_MODE             : result = static_cast<uint32_t>(opMode); break;
   case REG_ACEL_TIME                  : result = to32Bit(timeAcel_ms); break;
   case REG_DECEL_TIME                 : result = to32Bit(timeDecel_ms); break;
   case REG_CURRENT_RPM                : result = to32Bit(currentRPM); break;
@@ -89,11 +89,11 @@ uint32_t Stepper::HandleRead(uint8_t reg) {
   case REG_RUNNING_CURRENT            : result = to32Bit(runningCurrent); break;
   case REG_HOLDING_CURRENT_PERCENTAGE : result = to32Bit(holdingCurrentPercentage); break;
   case REG_STALL_VALUE                : result = to32Bit(this->ReadStallValue()); break;
-  case REG_HOMING_METHOD              : result = to32Bit(homingMethod); break;
+  case REG_HOMING_METHOD              : result = static_cast<uint32_t>(homingMethod); break;
   case REG_HOMING_SENSOR_TRIGGER_VALUE: result = to32Bit(sensorHomeValue ? 1 : 0); break;
   case REG_REQUEST_HOMING             : result = to32Bit(runHoming ? 1 : 0); break;
   case REG_HOMED                      : result = to32Bit(homed ? 1 : 0); break;
-  case REG_POSITIONING_MODE           : result = to32Bit(posMode); break;
+  case REG_POSITIONING_MODE           : result = static_cast<uint32_t>(posMode); break;
   default                             : result = to32Bit(INVALID_REGISTER); break;
   }
 
@@ -111,9 +111,9 @@ float Stepper::ReadTemperature() {
 uint16_t Stepper::ReadStallValue() {
   uint8_t  status;
   uint32_t data;
-  this->_RegRead(REG_CHOPCONF, &data, &status);
+  this->_RegRead(REG_SG_RESULT_IND, &data, &status);
 
-  return (uint16_t)(data & 0x000003FF);
+  return data;
 }
 /* ---------------------------------------------------------------------------------- */
 uint8_t Stepper::ReadStatus() {
@@ -458,8 +458,9 @@ bool Stepper::_IsStalled() {
     return false;
   } else if (currentRPM < threshHigh) {
     this->_RegRead(REG_SG_RESULT_IND, &data, &status);
-    return data == 0;
+    return data == 0; // todo: at higher rpm, sudden dip in value can be used
   } else {
+    if (currentRPM >= 700 && currentRPM <= 800) return false; // !transition rpm
     this->_RegRead(REG_GCONF, &data, &status);
     return bitRead(status, 2);
   }

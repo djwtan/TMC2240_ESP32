@@ -12,31 +12,32 @@
 #define WRITE_FAIL       0x00000000
 #define INVALID_REGISTER 0xFFFFFFFF
 
-enum class MotorState {
-  STALLED,
-  OVERSPEED,
-  IDLE,
-  RUNNING,
-  POWER_ERR,
-  NOT_INIT,
+enum class MotorState : uint8_t {
+  STALLED   = 0,
+  OVERSPEED = 1,
+  IDLE      = 2,
+  RUNNING   = 3,
+  POWER_ERR = 4,
+  NOT_INIT  = 5,
 };
 
-enum class HomingMethod {
-  IMMEDIATE,
-  SENSOR,
-  TORQUE,
+enum class HomingMethod : uint8_t {
+  IMMEDIATE = 0,
+  SENSOR    = 1,
+  TORQUE    = 2,
 };
 
-enum class OpMode {
-  POSITION,
-  VELOCITY,
-  INVERSE_TIME,
+enum class OpMode : uint8_t {
+  POSITION     = 0,
+  VELOCITY     = 1,
+  INVERSE_TIME = 2,
 };
 
-enum class PositioningMode {
-  RELATIVE,
-  ABSOLUTE,
+enum class PositioningMode : uint8_t {
+  RELATIVE = 0,
+  ABSOLUTE = 1,
 };
+
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -132,7 +133,7 @@ private:
 
   // StallGuard
   // todo: expose these values
-  const float threshLow  = 30.0f;
+  const float threshLow  = 40.0f;
   const float threshHigh = 150.0f;
   bool        _IsStalled();
 

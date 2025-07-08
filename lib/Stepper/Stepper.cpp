@@ -103,7 +103,7 @@ uint32_t Stepper::HandleRead(uint8_t reg) {
 float Stepper::ReadTemperature() {
   uint8_t  status;
   uint32_t data;
-  this->_RegRead(0x51, &data, &status);
+  this->_RegRead(REG_TEMPERATURE, &data, &status);
 
   return (float)((uint16_t)(data & 0x00001FFF) - 2038) / 7.7;
 }
@@ -111,7 +111,7 @@ float Stepper::ReadTemperature() {
 uint16_t Stepper::ReadStallValue() {
   uint8_t  status;
   uint32_t data;
-  this->_RegRead(0x6F, &data, &status);
+  this->_RegRead(REG_CHOPCONF, &data, &status);
 
   return (uint16_t)(data & 0x000003FF);
 }
@@ -119,7 +119,7 @@ uint16_t Stepper::ReadStallValue() {
 uint8_t Stepper::ReadStatus() {
   uint8_t  status;
   uint32_t data;
-  this->_RegRead(0x00, &data, &status);
+  this->_RegRead(REG_GCONF, &data, &status);
 
   return status;
 }
@@ -447,9 +447,6 @@ void Stepper::MoveInverseTime() {
   Output: RPM, timeAcel, timeDecel
   */
 }
-
-/* ---------------------------------------------------------------------------------- */
-String Stepper::_GenerateMessage() { return "s" + String(pri_id) + ": "; }
 /* ---------------------------------------------------------------------------------- */
 void Stepper::_UpdateMotorState(MotorState mState) { motorState = mState; }
 /* ---------------------------------------------------------------------------------- */
@@ -460,10 +457,10 @@ bool Stepper::_IsStalled() {
   if (currentRPM < threshLow) {
     return false;
   } else if (currentRPM < threshHigh) {
-    this->_RegRead(0x75, &data, &status);
+    this->_RegRead(REG_SG_RESULT_IND, &data, &status);
     return data == 0;
   } else {
-    this->_RegRead(0x00, &data, &status);
+    this->_RegRead(REG_GCONF, &data, &status);
     return bitRead(status, 2);
   }
 }
@@ -480,7 +477,7 @@ void Stepper::_ComputeAccelerationParameters() {
   /* ================================ Parameter (Time) ================================ */
   nAcel = 2 * (highV - lowV) / (double)(pow(timeAcel_ms, 2));
 }
-
+/* ---------------------------------------------------------------------------------- */
 void Stepper::_ComputeDeccelerationParameters(float vmax) {
 
   /* ================================= Estimated Step ================================= */
@@ -494,10 +491,10 @@ void Stepper::_ComputeDeccelerationParameters(float vmax) {
   /* =============================== Parameter (Linear) =============================== */
   mDecel = (float)(targetRPM - minRPM) / sDecel;
 }
-
+/* ---------------------------------------------------------------------------------- */
 unsigned long Stepper::ComputeTimePeriod() {
 
-  /* ====================================== Move? ===================================== */
+  /* ====================================== Reach ===================================== */
   if (currentPOS == targetPOS) {
     currentRPM = 0;
 
@@ -516,112 +513,78 @@ unsigned long Stepper::ComputeTimePeriod() {
     } else
       this->_UpdateMotorState(MotorState::IDLE);
     return 0;
+  }
 
-  } else {
+  /* ===================================== Homing? ==================================== */
+  if (runHoming) {
+    switch (homingMethod) {
+    case HomingMethod::IMMEDIATE:
+      currentPOS = 0;
+      targetPOS  = 0;
+      homed      = true;
+      runHoming  = false;
+      break;
 
-    /* ===================================== Homing? ==================================== */
-    if (runHoming) {
-      switch (homingMethod) {
-      case HomingMethod::IMMEDIATE:
+    case HomingMethod::TORQUE: {
+      if (this->_IsStalled()) {
         currentPOS = 0;
         targetPOS  = 0;
         homed      = true;
         runHoming  = false;
-        break;
-
-      case HomingMethod::TORQUE: {
-        if (this->_IsStalled()) {
-          currentPOS = 0;
-          targetPOS  = 0;
-          homed      = true;
-          runHoming  = false;
-        }
-        break;
       }
-
-      case HomingMethod::SENSOR:
-        if (digitalRead(m_pinConfig.HOME_SENSOR_PIN) == sensorHomeValue) {
-          currentPOS = 0;
-          targetPOS  = 0;
-          homed      = true;
-          runHoming  = false;
-        }
-        break;
-      }
+      break;
     }
 
-    /* =============================== Update Motor State =============================== */
-    uint8_t status;
-    status = this->ReadStatus();
+    case HomingMethod::SENSOR:
+      if (digitalRead(m_pinConfig.HOME_SENSOR_PIN) == sensorHomeValue) {
+        currentPOS = 0;
+        targetPOS  = 0;
+        homed      = true;
+        runHoming  = false;
+      }
+      break;
+    }
+  }
 
-    if (status == 0 || status == 255) {
+  /* =============================== Update Motor State =============================== */
+  uint8_t status;
+  status = this->ReadStatus();
+
+  if (status == 0 || status == 255) {
+    this->EmergencyStop();
+    this->_UpdateMotorState(MotorState::POWER_ERR);
+    return 0;
+  } else if (stopOnStall && motorState == MotorState::STALLED) {
+    return 0;
+  } else if (this->_IsStalled()) {
+    this->_UpdateMotorState(MotorState::STALLED);
+    if (stopOnStall) {
       this->EmergencyStop();
-      this->_UpdateMotorState(MotorState::POWER_ERR);
       return 0;
-    } else if (stopOnStall && motorState == MotorState::STALLED) {
-      return 0;
-    } else if (this->_IsStalled()) {
-      this->_UpdateMotorState(MotorState::STALLED);
-      if (stopOnStall) {
-        this->EmergencyStop();
-        return 0;
-      }
-    } else {
-      this->_UpdateMotorState(MotorState::RUNNING);
     }
+  } else {
+    this->_UpdateMotorState(MotorState::RUNNING);
+  }
 
-    /* ==================================== direction =================================== */
-    direction = targetPOS > currentPOS;
-    digitalWrite(m_pinConfig.DIR_PIN, direction);
+  /* ==================================== direction =================================== */
+  direction = targetPOS > currentPOS;
+  digitalWrite(m_pinConfig.DIR_PIN, direction);
 
-    acelerating = targetRPM > currentRPM;
-    sAbs        = _abs(currentPOS - s_0);
+  acelerating = targetRPM > currentRPM;
+  sAbs        = _abs(currentPOS - s_0);
 
-    unsigned long timeNow = micros();
-    long          _dt     = timeNow - t_0;
+  unsigned long timeNow = micros();
+  long          _dt     = timeNow - t_0;
 
-    /* ================================================================================== */
-    /*                                       S-Curve                                      */
-    /* ================================================================================== */
-    if (sTotal > sDecel + sAcel) {
-      /* ================================= Complete Motion ================================ */
-      if (sAbs < (sTotal - sDecel)) {
-        /* =============================== Acceleration Phase =============================== */
-        if (sAbs < sAcel) {
-          // if (sAbs <= sAcel / 2) {
-          if (_dt <= timeDecel_ms / 2) {
-            currentRPM =
-                acelerating ? curveP1(nAcel, _dt, _max(minRPM, v_0)) : curveP2(nAcel, _dt, v_0);
-          } else {
-            long dS    = _abs(_dt - timeAcel_ms);
-            currentRPM = acelerating ? curveP2(nAcel, dS, targetRPM)
-                                     : curveP1(nAcel, dS, _max(minRPM, targetRPM));
-          }
-
-          /* ===================== TEST: Compute actual acceleration time ===================== */
-          actualAcelTime = _dt;
-        } else {
-          /* ================================= Constant Speed ================================= */
-          currentRPM = targetRPM;
-          tDecel_0   = timeNow;
-        }
-      } else {
-        /* =============================== Decceleration Phase ============================== */
-        long _dt_decel  = timeNow - tDecel_0;
-        long sAbs_decel = sAbs - (sTotal - sDecel);
-
-        /* =================================== Y = -mx + c =================================== */
-        currentRPM = targetRPM - mDecel * sAbs_decel;
-
-        /* ===================== TEST: Compute actual decceleration time ===================== */
-        actualDecelTime = _dt_decel;
-      }
-
-    } else {
-      /* ================================ Incomplete motion =============================== */
-      if (sAbs < (sTotal / 2)) {
-        /* ================================== Acceleration ================================== */
-        if (sAbs <= sAcel / 2) {
+  /* ================================================================================== */
+  /*                                       S-Curve                                      */
+  /* ================================================================================== */
+  if (sTotal > sDecel + sAcel) {
+    /* ================================= Complete Motion ================================ */
+    if (sAbs < (sTotal - sDecel)) {
+      /* =============================== Acceleration Phase =============================== */
+      if (sAbs < sAcel) {
+        if (_dt <= timeDecel_ms / 2) {
           currentRPM =
               acelerating ? curveP1(nAcel, _dt, _max(minRPM, v_0)) : curveP2(nAcel, _dt, v_0);
         } else {
@@ -630,42 +593,78 @@ unsigned long Stepper::ComputeTimePeriod() {
                                    : curveP1(nAcel, dS, _max(minRPM, targetRPM));
         }
 
-        peakRPM        = currentRPM;
-        recomputeParam = true;
-
+        /* ===================== TEST: Compute actual acceleration time ===================== */
         actualAcelTime = _dt;
-        tDecel_0       = timeNow;
-
       } else {
-        long _dt_decel = timeNow - tDecel_0;
-
-        /* ================================== Decceleration ================================= */
-        if (recomputeParam) {
-          sDecelRecomputed = sTotal - sAbs;
-          mDecel           = (float)(peakRPM - minRPM) / sDecelRecomputed;
-          recomputeParam   = false;
-        }
-        long sAbs_decel = sDecelRecomputed - sTotal + sAbs;
-
-        /* =================================== Y = -mx + c =================================== */
-        currentRPM = peakRPM - mDecel * sAbs_decel;
-
-        /* ===================== TEST: Compute actual decceleration time ===================== */
-        actualDecelTime = _dt_decel;
+        /* ================================= Constant Speed ================================= */
+        currentRPM = targetRPM;
+        tDecel_0   = timeNow;
       }
+    } else {
+      /* =============================== Decceleration Phase ============================== */
+      long _dt_decel  = timeNow - tDecel_0;
+      long sAbs_decel = sAbs - (sTotal - sDecel);
+
+      /* =================================== Y = -mx + c =================================== */
+      currentRPM = targetRPM - mDecel * sAbs_decel;
+
+      /* ===================== TEST: Compute actual decceleration time ===================== */
+      actualDecelTime = _dt_decel;
     }
 
-    /* =================================== step delay =================================== */
-    long pulseRateHz = (currentRPM * 200 * microstep) / 60;
-    stepDelay        = pulseRateHz == 0 ? 0 : 1000000 / pulseRateHz;
+  } else {
+    /* ================================ Incomplete motion =============================== */
+    if (sAbs < (sTotal / 2)) {
+      /* ================================== Acceleration ================================== */
+      if (sAbs <= sAcel / 2) {
+        currentRPM =
+            acelerating ? curveP1(nAcel, _dt, _max(minRPM, v_0)) : curveP2(nAcel, _dt, v_0);
+      } else {
+        long dS    = _abs(_dt - timeAcel_ms);
+        currentRPM = acelerating ? curveP2(nAcel, dS, targetRPM)
+                                 : curveP1(nAcel, dS, _max(minRPM, targetRPM));
+      }
 
-    return stepDelay;
+      peakRPM        = currentRPM;
+      recomputeParam = true;
+
+      actualAcelTime = _dt;
+      tDecel_0       = timeNow;
+
+    } else {
+      long _dt_decel = timeNow - tDecel_0;
+
+      /* ================================== Decceleration ================================= */
+      if (recomputeParam) {
+        sDecelRecomputed = sTotal - sAbs;
+        mDecel           = (float)(peakRPM - minRPM) / sDecelRecomputed;
+        recomputeParam   = false;
+      }
+      long sAbs_decel = sDecelRecomputed - sTotal + sAbs;
+
+      /* =================================== Y = -mx + c =================================== */
+      currentRPM = peakRPM - mDecel * sAbs_decel;
+
+      /* ===================== TEST: Compute actual decceleration time ===================== */
+      actualDecelTime = _dt_decel;
+    }
   }
+
+  /* =================================== step delay =================================== */
+  long pulseRateHz = (currentRPM * 200 * microstep) / 60;
+  stepDelay        = pulseRateHz == 0 ? 0 : 1000000 / pulseRateHz;
+
+  return stepDelay;
 }
 /* ---------------------------------------------------------------------------------- */
 void Stepper::_RegWrite(const uint8_t address, const uint32_t data) {
-  uint8_t buff[5] = {address | 0x80, (data >> 24) & 0xFF, (data >> 16) & 0xFF, (data >> 8) & 0xFF,
-                     data & 0xFF};
+  uint8_t buff[5];
+  buff[0] = static_cast<uint8_t>(address | 0x80);
+  buff[1] = static_cast<uint8_t>((data >> 24) & 0xFF);
+  buff[2] = static_cast<uint8_t>((data >> 16) & 0xFF);
+  buff[3] = static_cast<uint8_t>((data >> 8) & 0xFF);
+  buff[4] = static_cast<uint8_t>(data & 0xFF);
+
   m_spi->SPIExchange(buff, 5, pri_id);
 }
 /* ---------------------------------------------------------------------------------- */

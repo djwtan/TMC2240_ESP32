@@ -9,7 +9,7 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 - ~~Implement velocity mode~~
 - Implement inverse time mode
 - ~~Rework return message~~
-- Document wiring
+- ~~Document wiring~~
 - LED status indication
 - ~~Torque - Current (page 115) - T = KTi~~ (Current value returned is the set value. Does not change dynamically)
 - Document Max RPM by microstepping

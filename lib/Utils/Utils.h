@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-template <typename T> uint32_t convertTo32BitBinaryValue(T value) {
+template <typename T> uint32_t to32Bit(T value) {
   uint32_t result = 0;
 
   if constexpr (std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value) {
@@ -14,10 +14,10 @@ template <typename T> uint32_t convertTo32BitBinaryValue(T value) {
     result = static_cast<uint32_t>(value); // Already 32 bits, cast directly
   } else if constexpr (std::is_same<T, float>::value) {
     union {
-      float f;
+      float    f;
       uint32_t i;
     } u;
-    u.f = value;
+    u.f    = value;
     result = u.i; // Interpret the float as uint32_t
   }
 

@@ -3,36 +3,34 @@
 void Comm::init(Stream *serial) { m_serial = serial; }
 void Comm::readSerial() {
   /*   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-   *   │   Format of the message transmitted over serial:                                                        │
-   *   │                                                                                                         │
-   *   │   ┌────────┬───────────┬─────────────┬────────────┬─────────────┬───────────────┬────────────┬────────┐ │
-   *   │   │   SB   │ DEVICE ID │ INSTRUCTION │ STEPPER ID │   REGISTER  │   32-BIT DATA │   32-BIT   │   EB   │ │
-   *   │   │        │           │             │            │             │               │    CRC     │        │ │
-   *   │   ├────────┼───────────┼─────────────┼────────────┼─────────────┼───────────────┼────────────┼────────┤ │
-   *   │   │ Start  │ Device ID │ Instruction │ Stepper ID │ Register    │ Data to send  │ Error      │  End   │ │
-   *   │   │  Byte  │ 1 Byte    │   1 Byte    │   1 Byte   │ Address     │ or receive    │ Detection  │  Byte  │ │
-   *   │   │        │           │             │            │             │               │  (CRC32)   │        │ │
-   *   │   └────────┴───────────┴─────────────┴────────────┴─────────────┴───────────────┴────────────┴────────┘ │
+   *   │   Format of the message transmitted over serial: │ │ │ │
+   *   ┌────────┬───────────┬─────────────┬────────────┬─────────────┬───────────────┬────────────┬────────┐
+   *   │ │   │   SB   │ DEVICE ID │ INSTRUCTION │ STEPPER ID │   REGISTER  │   32-BIT DATA │ 32-BIT
+   *   │   EB   │ │ │   │        │           │             │            │             │ │    CRC │
+   *   │ │ │
+   * ├────────┼───────────┼─────────────┼────────────┼─────────────┼───────────────┼────────────┼────────┤
+   * │ │   │ Start  │ Device ID │ Instruction │ Stepper ID │ Register    │ Data to send  │ Error │
+   * End   │ │ │   │  Byte  │ 1 Byte    │   1 Byte    │   1 Byte   │ Address     │ or receive    │
+   * Detection  │  Byte  │ │ │   │        │           │             │            │             │ │
+   * (CRC32)   │        │ │ │
+   * └────────┴───────────┴─────────────┴────────────┴─────────────┴───────────────┴────────────┴────────┘
+   * │
    *   └─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
    */
-  if (m_serial == nullptr)
-    return;
+  if (m_serial == nullptr) return;
 
-  if (m_serial->available() == 0)
-    return;
+  if (m_serial->available() == 0) return;
 
   /* ================================ Start Byte Check ================================ */
   uint8_t startByte;
   this->pri_read8(&startByte);
 
-  if (!this->pri_isStartByte(startByte))
-    return;
+  if (!this->pri_isStartByte(startByte)) return;
 
   /* ================================= Device ID check ================================ */
   uint8_t id;
   this->pri_read8(&id);
-  if (!this->pri_isCorrectId(id))
-    return;
+  if (!this->pri_isCorrectId(id)) return;
 
   /* ================================ Construct Message =============================== */
   message msg;
@@ -47,26 +45,22 @@ void Comm::readSerial() {
   // Read the CRC32 checksum
   this->pri_read32(&receivedCrc);
 
-  if (!this->pri_isCorrectCRC(receivedCrc, msg.data))
-    return;
+  if (!this->pri_isCorrectCRC(receivedCrc, msg.data)) return;
 
   /* ================================= End Byte Check ================================= */
   uint8_t endByte;
   this->pri_read8(&endByte);
-  if (!this->pri_isEndByte(endByte))
-    return;
+  if (!this->pri_isEndByte(endByte)) return;
 
   this->pri_execCommand(msg);
 }
 
 void Comm::initStepper(uint8_t num, Stepper *stepper) {
   // max SPI = 128
-  if (!(num >= 0 && num < MAX_STEPPER))
-    return;
+  if (!(num >= 0 && num < 4)) return;
 
   // sanity check
-  if (steppers[num] != nullptr)
-    return;
+  if (steppers[num] != nullptr) return;
 
   steppers[num] = stepper;
 }
@@ -75,24 +69,20 @@ void Comm::initStepper(uint8_t num, Stepper *stepper) {
 /*                                      Read Bit                                      */
 /* ================================================================================== */
 void Comm::pri_read8(uint8_t *w) {
-  if (m_serial->available() > 0) {
-    *w = m_serial->read();
-  }
+  if (m_serial->available() > 0) { *w = m_serial->read(); }
 }
 
 void Comm::pri_read32(uint32_t *w) {
-  *w = 0;
-  int bytesRead = 0;
+  *w                      = 0;
+  int           bytesRead = 0;
   unsigned long startTime = millis();
 
   while (bytesRead < 4) {
-    if (millis() - startTime > TIMEOUT) {
-      break;
-    }
+    if (millis() - startTime > TIMEOUT) { break; }
 
     if (m_serial->available() > 0) {
       byte dataByte = m_serial->read();
-      *w = (*w << 8) | dataByte;
+      *w            = (*w << 8) | dataByte;
       bytesRead++;
     }
   }
@@ -104,7 +94,9 @@ void Comm::pri_read32(uint32_t *w) {
 bool Comm::pri_isStartByte(uint8_t sB) { return sB == START_BYTE; }
 bool Comm::pri_isEndByte(uint8_t eB) { return eB == END_BYTE; }
 bool Comm::pri_isCorrectId(uint8_t id) { return id == DEVICE_ID; }
-bool Comm::pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData) { return recvCRC == this->pri_computeCRC32(bufData); }
+bool Comm::pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData) {
+  return recvCRC == this->pri_computeCRC32(bufData);
+}
 uint32_t Comm::pri_computeCRC32(uint32_t bufData) {
   byte data[4];
   data[0] = (bufData >> 24) & 0xFF; // MSB
@@ -138,8 +130,8 @@ void Comm::pri_execCommand(message msg) {
   /* ================================= Create response ================================ */
   response response;
   response.start_byte = START_BYTE;
-  response.device_id = DEVICE_ID;
-  response.end_byte = END_BYTE;
+  response.device_id  = DEVICE_ID;
+  response.end_byte   = END_BYTE;
 
   switch (msg.instruction) {
   case INSTRUCTION_STEPPER_READ:
@@ -147,7 +139,7 @@ void Comm::pri_execCommand(message msg) {
       response.validity = BAD_INSTRUCTION;
     else {
       response.validity = GOOD_INSTRUCTION;
-      response.result = steppers[msg.stepperId]->HandleRead(msg.reg);
+      response.result   = steppers[msg.stepperId]->HandleRead(msg.reg);
     }
     break;
   case INSTRUCTION_STEPPER_WRITE:
@@ -155,20 +147,20 @@ void Comm::pri_execCommand(message msg) {
       response.validity = BAD_INSTRUCTION;
     else {
       response.validity = GOOD_INSTRUCTION;
-      response.result = steppers[msg.stepperId]->HandleWrite(msg.reg, msg.data);
+      response.result   = steppers[msg.stepperId]->HandleWrite(msg.reg, msg.data);
     }
     break;
   case INSTRUCTION_SYSTEM_READ:
     response.validity = GOOD_INSTRUCTION;
-    response.result = 0;
+    response.result   = 0;
     break;
   case INSTRUCTION_SYSTEM_WRITE:
     response.validity = GOOD_INSTRUCTION;
-    response.result = 0;
+    response.result   = 0;
     break;
   default:
     response.validity = BAD_INSTRUCTION;
-    response.result = 0;
+    response.result   = 0;
     break;
   }
 

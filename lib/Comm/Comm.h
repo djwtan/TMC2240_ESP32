@@ -1,17 +1,36 @@
 #ifndef COMM_H
 #define COMM_H
 
-#include "Define.h"
 #include "Stepper.h"
 #include <Arduino.h>
 #include <CRC32.h>
 
 // Instruction type
-#define INSTRUCTION_STEPPER_READ 0x00
+#define INSTRUCTION_STEPPER_READ  0x00
 #define INSTRUCTION_STEPPER_WRITE 0x01
-#define INSTRUCTION_SYSTEM_READ 0x02
-#define INSTRUCTION_SYSTEM_WRITE 0x03
-#define BUFFER_SIZE 32 // arduino -8, esp32 -32
+#define INSTRUCTION_SYSTEM_READ   0x02
+#define INSTRUCTION_SYSTEM_WRITE  0x03
+#define BUFFER_SIZE               32 // arduino -8, esp32 -32
+
+// Response
+#define GOOD_INSTRUCTION 0x01
+#define BAD_INSTRUCTION  0x00
+
+struct message {
+  uint8_t  instruction;
+  uint8_t  stepperId;
+  uint8_t  reg;
+  uint32_t data;
+};
+
+struct response {
+  uint8_t  start_byte;
+  uint8_t  device_id;
+  uint8_t  validity;
+  uint32_t result;
+  uint32_t crc;
+  uint8_t  end_byte;
+};
 
 class Comm {
 public:
@@ -21,8 +40,8 @@ public:
   void initStepper(uint8_t num, Stepper *stepper);
 
 private:
-  Stream *m_serial{nullptr};
-  Stepper *steppers[MAX_STEPPER] = {nullptr};
+  Stream  *m_serial{nullptr};
+  Stepper *steppers[4] = {nullptr};
 
   const uint8_t DEVICE_ID{0x01}; // TODO: write EEPROM
   const uint8_t START_BYTE{0xAA};
@@ -35,10 +54,10 @@ private:
   void pri_read32(uint32_t *w);
 
   // Checks
-  bool pri_isStartByte(uint8_t sB);
-  bool pri_isEndByte(uint8_t id);
-  bool pri_isCorrectId(uint8_t id);
-  bool pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData);
+  bool     pri_isStartByte(uint8_t sB);
+  bool     pri_isEndByte(uint8_t id);
+  bool     pri_isCorrectId(uint8_t id);
+  bool     pri_isCorrectCRC(uint32_t recvCRC, uint32_t bufData);
   uint32_t pri_computeCRC32(uint32_t bufData);
 
   // Map command

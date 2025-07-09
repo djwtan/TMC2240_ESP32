@@ -3,8 +3,7 @@ import time
 import struct
 import binascii
 import threading
-import queue
-from typing import Optional, List
+from typing import Optional
 
 from .define import *  # Ensure proper imports for constants like START_BYTE, END_BYTE, etc.
 
@@ -16,41 +15,41 @@ class ESP32_TMC2240_API:
     """
 
     WAIT_TIME = 0.008  # Delay between commands to ensure the ESP32 processes data correctly
-
+    # ------------------------------------------------------------------------------------ #
     def __init__(self, comm_port: serial.Serial, lock: threading.Lock, device_id: int):
         """
         Initialize the API instance.
 
-        :param comm_port: The serial port for communication.
-        :param lock: A threading lock to prevent concurrent access to the serial port.
-        :param device_id: The ID of the device to communicate with.
+        : param comm_port: The serial port for communication.
+        : param lock     : A threading lock to prevent concurrent access to the serial port.
+        : param device_id: The ID of the device to communicate with.
         """
         self.ser_lock = lock
-        self.ser = comm_port
+        self.ser      = comm_port
 
         # Prevents the ESP32 from resetting during serial initialization
         self.ser.setRTS(False)
         self.ser.setDTR(False)
 
         # Storing
-        self.__device_id = device_id
-        self.__operation_mode = [OpMode.POSITION] * 4
+        self._device_id      = device_id
+        self._operation_mode = [OpMode.POSITION] * 4
 
         # Clear any residual log messages from the ESP32's serial buffer
         self.clear_serial_buffer()
         time.sleep(0.1)
-
+    # ------------------------------------------------------------------------------------ #
     def create_message(
         self, instruction: Instruction, register: Register, value: int = 0, stepper_id: int = 0x00
     ) -> bytearray:
         """
         Create a message packet for communication with the ESP32.
 
-        :param instruction: The instruction type (e.g., READ, WRITE).
-        :param register: The register to read/write.
-        :param value: The value to write (default is 0).
-        :param stepper_id: The ID of the stepper motor (default is 0x00).
-        :return: The constructed message as a bytearray.
+        : param instruction: The instruction type (e.g., READ, WRITE).
+        : param register   : The register to read/write.
+        : param value      : The value to write (default is 0).
+        : param stepper_id : The ID of the stepper motor (default is 0x00).
+        : return           : The constructed message as a bytearray.
         """
         # Prepare the data payload
         data = struct.pack(">i", value)  # Pack the value as a 32-bit big-endian integer
@@ -61,11 +60,11 @@ class ESP32_TMC2240_API:
         # Construct the message packet
         message = bytearray(
             [
-                START_BYTE,  # Start byte
-                self.__device_id,  # Device ID
-                instruction,  # Instruction type
-                stepper_id,  # Stepper ID
-                register,  # Register address
+                START_BYTE,         # Start byte
+                self._device_id,   # Device ID
+                instruction,        # Instruction type
+                stepper_id,         # Stepper ID
+                register,           # Register address
             ]
         )
         message.extend(data)  # Append the 32-bit data
@@ -73,7 +72,7 @@ class ESP32_TMC2240_API:
         message.append(END_BYTE)  # End byte
 
         return message
-
+    # ------------------------------------------------------------------------------------ #
     def send_serial(self, message: bytearray) -> Optional[int]:
         """
         Send a message over the serial port and parse the response.
@@ -103,10 +102,10 @@ class ESP32_TMC2240_API:
 
             # Validate response components
             if (
-                start_byte != START_BYTE
-                or device_id != self.__device_id
-                or validity != Validity.GOOD_INSTRUCTION
-                or end_byte != END_BYTE
+                   start_byte != START_BYTE
+                or device_id  != self._device_id
+                or validity   != Validity.GOOD_INSTRUCTION
+                or end_byte   != END_BYTE
             ):
                 return None
 
@@ -123,7 +122,7 @@ class ESP32_TMC2240_API:
 
         finally:
             time.sleep(self.WAIT_TIME)
-
+    # ------------------------------------------------------------------------------------ #
     def clear_serial_buffer(self) -> Optional[str]:
         """
         Clear the serial buffer of any residual data.
@@ -134,7 +133,7 @@ class ESP32_TMC2240_API:
             response = self.ser.read(self.ser.in_waiting)
             return response.decode("utf-8")
         return None
-
+    # ------------------------------------------------------------------------------------ #
     def read(self, stepper_id: int, register: Register) -> Optional[int]:
         """
         Read data from a specific register.
@@ -147,7 +146,7 @@ class ESP32_TMC2240_API:
 
         with self.ser_lock:
             return self.send_serial(message)
-
+    # ------------------------------------------------------------------------------------ #
     def write(self, stepper_id: int, register: Register, value: int = 0) -> Optional[int]:
         """
         Write data to a specific register.
@@ -161,16 +160,16 @@ class ESP32_TMC2240_API:
 
         with self.ser_lock:
             return self.send_serial(message)
-
+    # ------------------------------------------------------------------------------------ #
     def init_stepper(
         self,
-        stepper_id: int,
-        stop_on_stall: bool = False,
-        microstepping: int = 4,
-        current: int = 31,
+        stepper_id                : int,
+        stop_on_stall             : bool = False,
+        microstepping             : int = 4,
+        current                   : int = 31,
         holding_current_percentage: int = 50,
-        operation_mode: OpMode = OpMode.POSITION,
-        positioning_mode: PositioningMode = PositioningMode.ABSOLUTE,
+        operation_mode            : OpMode = OpMode.POSITION,
+        positioning_mode          : PositioningMode = PositioningMode.ABSOLUTE,
     ) -> bool:
         """
         Initialize a stepper motor with specified settings.
@@ -189,17 +188,17 @@ class ESP32_TMC2240_API:
 
         # Verify all operations succeeded
         if all(results):
-            self.__operation_mode[stepper_id] = operation_mode
+            self._operation_mode[stepper_id] = operation_mode
             return True
 
         return False
-
+    # ------------------------------------------------------------------------------------ #
     def configure_motion(
         self,
-        stepper_id: int,
-        target_position: int,
-        rpm: int,
-        acceleration_time_ms: int = None,
+        stepper_id           : int,
+        target_position      : int,
+        rpm                  : int,
+        acceleration_time_ms : int = None,
         decceleration_time_ms: int = None,
     ) -> bool:
         """
@@ -218,14 +217,14 @@ class ESP32_TMC2240_API:
             results.append(self.write(stepper_id, Register.DECEL_TIME, decceleration_time_ms))
 
         return all(results)
-
+    # ------------------------------------------------------------------------------------ #
     def emergency_stop(self, stepper_id: int) -> bool:
         """
         Immediately stop the motor.
         Returns True if successful, otherwise False.
         """
         return self.write(stepper_id, Register.EMERGENCY_STOP) == 1
-
+    # ------------------------------------------------------------------------------------ #
     def enable_stepper(self, stepper_id: int) -> bool:
         """
         Enables stepper (clear faults)
@@ -233,72 +232,49 @@ class ESP32_TMC2240_API:
         res = self.write(stepper_id, Register.ENABLE_STEPPER)
 
         return res == 1
+    # ------------------------------------------------------------------------------------ #
+    def read_current_position(self, stepper_id: int):
+        value = self.read(stepper_id, Register.CURRENT_POS)
 
-    def is_running(self, stepper_id: int) -> bool:
-        """
-        Check if the motor is currently running.
-        Returns True if running, otherwise False.
-        """
-        return self.read(stepper_id, Register.MOTOR_STATUS) == MotorStatus.RUNNING
-
-    def is_stalled(self, stepper_id: int) -> bool:
-        """
-        Check if the motor is currently stalled.
-        Returns True if stalled, otherwise False.
-        """
-        return self.read(stepper_id, Register.MOTOR_STATUS) == MotorStatus.STALLED
-
-    # Internal blocker method
-    def __blocker(self, stepper_id: int, result: queue.Queue, stop_event: threading.Event = None):
-        """
-        Block until the motor operation is complete or a stop event is triggered.
-        Puts the result into the provided queue.
-        """
-        # Wait for the motor to stop running or for the stop event
-        while self.is_running(stepper_id):
-            if stop_event and stop_event.is_set():
-                self.emergency_stop(stepper_id)
-                break
-
-        # Read motor status and positions
-        motor_status = self.read(stepper_id, Register.MOTOR_STATUS)
-        final_position = self.read(stepper_id, Register.CURRENT_POS)
-        target_position = self.read(stepper_id, Register.TARGET_POSITION)
-
-        # Validate communication results
-        if motor_status is None or final_position is None or target_position is None:
-            result.put([])
-            return
-
-        # Convert to signed integers if necessary
-        final_position = final_position - 0x100000000 if final_position > 0x7FFFFFF else final_position
-        target_position = target_position - 0x100000000 if target_position > 0x7FFFFFF else target_position
-
-        if target_position - final_position != 0:
-            print(target_position)
-            print(final_position)
-
-        # Return results as [stepper_id, success, position_error]
-        result.put(
-            [
-                motor_status == MotorStatus.IDLE,
-                target_position - final_position,
-            ]
-        )
-
-    # Position mode blocker
-    def position_mode_blocker(self, stepper_id: int, stop_event: threading.Event = None):
-        """
-        Block until the motor reaches the target position or a stop event is triggered.
-        Returns [success, position_error].
-        """
-        # Ensure the motor is in position mode
-        if self.__operation_mode[stepper_id] != OpMode.POSITION:
+        if value is None:
+            print(f"({self._device_id}-{stepper_id}) failed to read current position")
             return None
+        
+        return value - 0x100000000 if value > 0x7FFFFFF else value # convert to signed int
+    # ------------------------------------------------------------------------------------ #
+    def read_target_position(self, stepper_id: int):
+        value = self.read(stepper_id, Register.TARGET_POSITION)
 
-        result_queue = queue.Queue()
-        worker = threading.Thread(target=self.__blocker, args=(stepper_id, result_queue, stop_event), daemon=True)
-        worker.start()
-        worker.join()
+        if value is None:
+            print(f"({self._device_id}-{stepper_id}) failed to read target position")
+            return None
+        
+        return value - 0x100000000 if value > 0x7FFFFFF else value # convert to signed int
+    # ------------------------------------------------------------------------------------ #
+    def read_current_rpm(self, stepper_id: int):
+        value = self.read(stepper_id, Register.CURRENT_RPM)
 
-        return result_queue.get()
+        if value is None:
+            print(f"({self._device_id}-{stepper_id}) failed to read current rpm")
+            return None
+    
+        return struct.unpack('f', struct.pack('I', value))[0] # convert to float
+    # ------------------------------------------------------------------------------------ #
+    def read_target_rpm(self, stepper_id: int):
+        value = self.read(stepper_id, Register.TARGET_RPM)
+
+        if value is None:
+            print(f"({self._device_id}-{stepper_id}) failed to read target rpm")
+            return None
+    
+        return struct.unpack('f', struct.pack('I', value))[0] # convert to float
+    # ------------------------------------------------------------------------------------ #
+    def read_driver_temperature(self, stepper_id: int):
+        value = self.read(stepper_id, Register.TEMPERATURE)
+
+        if value is None:
+            print(f"({self._device_id}-{stepper_id}) failed to read driver temperature")
+            return None
+    
+        return struct.unpack('f', struct.pack('I', value))[0] # convert to float
+    # ------------------------------------------------------------------------------------ #

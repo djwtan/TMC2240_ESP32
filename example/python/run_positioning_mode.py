@@ -2,44 +2,46 @@ from comm import *
 import serial
 import threading
 
-steppers = [
+# ==================================================================================== #
+#                                       Settings                                       #
+# ==================================================================================== #
+PORT      = "COM7"
+DEVICE_ID = 0x01
+STEPPERS  = [
     0x00,
-    # 0x01,
-    # 0x02,
-    # 0x03,
+    0x01,
+    0x02,
+    0x03,
 ]
+MOTION = {
+    0x00: (700, 10, 1000, 1000),
+    0x01: (1600, 200, 1000, 1000),
+    0x02: (-1600, 200, 1000, 1000),
+    0x03: (1600, 200, 50, 0),
+}  # (position, rpm, acceleration, decceleration)
 
-# (position, rpm, acceleration, decceleration)
-stepper_motion = {
-    0x00: (700 * 1, 10, 1000, 1000),
-    # 0x00: (-700 * 1, 120, 1000, 1000),
-    0x01: (1600 * 1, 200, 1000, 1000),
-    0x02: (-1600 * 1, 200, 1000, 1000),
-    0x03: (1600 * 1, 200, 50, 0),
-}
 
 if __name__ == "__main__":
-
     # =============================== Initialize Controller ============================== #
-    comm_port = serial.Serial("COM7", 115200, timeout=1, dsrdtr=None)
-    comm_lock = threading.Lock()
-    device_id = 0x01
-
-    stepper_controller = ESP32_TMC2240_API(comm_port, comm_lock, device_id)
+    PORT               = serial.Serial(PORT, 115200, timeout=1, dsrdtr=None)
+    LOCK               = threading.Lock()
+    STEPPER_CONTROLLER = ESP32_TMC2240_API(PORT, LOCK, DEVICE_ID)
 
     # ================================ Initialize stepper ================================ #
     res = []
-    for stepper in steppers:
+    for stepper in STEPPERS:
         res.append(
-            stepper_controller.init_stepper(
+            STEPPER_CONTROLLER.init_stepper(
                 stepper,
-                stop_on_stall=False,
-                operation_mode=OpMode.POSITION,
-                positioning_mode=PositioningMode.RELATIVE,
-                holding_current_percentage=50,
+                stop_on_stall              = False,
+                microstepping              = 4,
+                current                    = 31,
+                holding_current_percentage = 50,
+                operation_mode             = OpMode.POSITION,
+                positioning_mode           = PositioningMode.RELATIVE,
             )
         )
-        stepper_controller.enable_stepper(0)
+        STEPPER_CONTROLLER.enable_stepper(0)
 
     if not all(res):
         print("init failed")
@@ -47,8 +49,8 @@ if __name__ == "__main__":
 
     # ================================= Configure Motion ================================= #
     res = []
-    for stepper in steppers:
-        res.append(stepper_controller.configure_motion(stepper, *stepper_motion[stepper]))
+    for stepper in STEPPERS:
+        res.append(STEPPER_CONTROLLER.configure_motion(stepper, *MOTION[stepper]))
 
     if not all(res):
         print("motion configuration failed")
@@ -56,48 +58,35 @@ if __name__ == "__main__":
 
     # ======================================= Move ======================================= #
     res = []
-    for stepper in steppers:
-        res.append(stepper_controller.write(stepper, Register.MOVE))
+    for stepper in STEPPERS:
+        res.append(STEPPER_CONTROLLER.write(stepper, Register.MOVE))
 
     if not all(res):
         print("move failed")
         exit()
 
     # ====================================== Blocker ===================================== #
+    MSG = "({}) | Status: ({:^5}) | Pos: {:^10} / {:^10} | Rpm: {:^10} / {:^10} |"
     while True:
         try:
-            time.sleep(1)
-            # print("hi")
+            for stepper in STEPPERS:
+                motor_status     = STEPPER_CONTROLLER.read(stepper, Register.MOTOR_STATUS)
+                current_position = STEPPER_CONTROLLER.read_current_position(stepper)
+                target_position  = STEPPER_CONTROLLER.read_target_position(stepper)
+                current_rpm      = STEPPER_CONTROLLER.read_current_rpm(stepper)
+                target_rpm       = STEPPER_CONTROLLER.read_target_rpm(stepper)
+
+                print(MSG.format(
+                    stepper, 
+                    MotorStatus.get_name(motor_status), 
+                    current_position, 
+                    target_position, 
+                    current_rpm, 
+                    target_rpm)
+                )
+
         except KeyboardInterrupt:
-            motor_status = stepper_controller.read(0, Register.MOTOR_STATUS)
-            final_position = stepper_controller.read(0, Register.CURRENT_POS)
-            target_position = stepper_controller.read(0, Register.TARGET_POSITION)
-
-            # Convert to signed integers if necessary
-            final_position = final_position - 0x100000000 if final_position > 0x7FFFFFF else final_position
-            target_position = target_position - 0x100000000 if target_position > 0x7FFFFFF else target_position
-
-            print(target_position)
-            print(final_position)
-    # outcome = []
-
-    # for stepper in steppers:
-    #     outcome.append(stepper_controller.position_mode_blocker(stepper))
-
-    # print(outcome)
-
-    # =================================== Auto Correct =================================== #
-    # # ! Not reliable
-    # for stepper in steppers:
-    #     if not outcome[stepper][0]:
-    #         print("correct stepper {} by {} steps".format(stepper, outcome[stepper][1]))
-
-    #         res = []
-    #         res.append(stepper_controller.enable_stepper(stepper))
-    #         time.sleep(1)
-    #         res.append(stepper_controller.configure_motion(stepper, outcome[stepper][1], 100))
-    #         res.append(stepper_controller.write(stepper, Register.MOVE))
-
-    #         if not all(res):
-    #             print("move failed")
-    #             exit()
+            for stepper in STEPPERS:
+                STEPPER_CONTROLLER.emergency_stop(stepper)
+            break
+    # ------------------------------------------------------------------------------------ #

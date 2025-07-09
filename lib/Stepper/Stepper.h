@@ -149,7 +149,7 @@ private:
   float         peakRPM     = 0.0f;
   bool          direction   = true;
   bool          acelerating = false;
-  float         minRPM      = 10.0f;
+  float         minRPM      = 0.0f;
   unsigned long stepDelay   = 0UL;
   unsigned long timeStamp   = micros();
   uint32_t      sAbs        = 0;

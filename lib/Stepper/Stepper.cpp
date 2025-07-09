@@ -373,7 +373,7 @@ uint32_t Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
   // Require idle
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
-  if (userInput <= 0 || userInput > 50) return WRITE_FAIL;
+  if (userInput <= 0 || userInput > 100) return WRITE_FAIL;
 
   holdingCurrentPercentage = userInput;
   holdingCurrent           = runningCurrent * holdingCurrentPercentage / 100;

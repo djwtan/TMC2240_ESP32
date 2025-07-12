@@ -1,14 +1,16 @@
 #ifndef TMC2240_REGISTERS_H
 #define TMC2240_REGISTERS_H
 
-#define REG_CHOPCONF      0x6C
-#define REG_IHOLD_IRUN    0x10
-#define REG_TPOWERDOWN    0x11
-#define REG_TPWMTHRS      0x13
-#define REG_GCONF         0x00
-#define REG_GSTAT         0x01
-#define REG_PWMCONF       0x70
-#define REG_SG_RESULT_IND 0x75
-#define REG_TEMPERATURE   0x51
+namespace TMC2240_Registers {
+constexpr uint8_t CHOPCONF      = 0x6C;
+constexpr uint8_t IHOLD_IRUN    = 0x10;
+constexpr uint8_t TPOWERDOWN    = 0x11;
+constexpr uint8_t TPWMTHRS      = 0x13;
+constexpr uint8_t GCONF         = 0x00;
+constexpr uint8_t GSTAT         = 0x01;
+constexpr uint8_t PWMCONF       = 0x70;
+constexpr uint8_t SG_RESULT_IND = 0x75;
+constexpr uint8_t TEMPERATURE   = 0x51;
+} // namespace TMC2240_Registers
 
 #endif

@@ -21,3 +21,4 @@ Stepper motor controller using the TMC2240 motor driver and the ESP32
 - ~~Homing~~
 - Limit Switch
 - ~~Multi Axis Control~~
+- Use RTOS to separate COMMS and ramp generation tasks

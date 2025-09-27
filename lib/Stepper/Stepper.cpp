@@ -1,6 +1,8 @@
 #include "Stepper.h"
 
-Stepper::Stepper(uint8_t id) : pri_id(id) {}
+Stepper::Stepper(uint8_t id, TMC2240_SPI *tmc2240spi, volatile bool *run, hw_timer_t *hwtimer,
+                 portMUX_TYPE *timerMux)
+    : m_id(id), m_spi(tmc2240spi), m_run(run), m_hwtimer(hwtimer), m_timerMux(timerMux) {}
 
 /* ---------------------------------------------------------------------------------- */
 void Stepper::ConfigurePin(PinConfig pin) {
@@ -12,8 +14,6 @@ void Stepper::ConfigurePin(PinConfig pin) {
   pinMode(m_pinConfig.HOME_SENSOR_PIN, INPUT);
 }
 /* ---------------------------------------------------------------------------------- */
-void Stepper::InitSPI(TMC2240_SPI *tmc2240spi) { m_spi = tmc2240spi; }
-/* ---------------------------------------------------------------------------------- */
 void Stepper::Initialize(bool *result) {
   uint32_t      ms;
   const uint8_t MRES_BIT = 24;
@@ -22,14 +22,14 @@ void Stepper::Initialize(bool *result) {
 
   switch (microstep) {
   case 128: ms = 0x1; break;
-  case 64 : ms = 0x2; break;
-  case 32 : ms = 0x3; break;
-  case 16 : ms = 0x4; break;
-  case 8  : ms = 0x5; break;
-  case 4  : ms = 0x6; break;
-  case 2  : ms = 0x7; break;
-  case 1  : ms = 0x8; break;
-  default : ms = 0x0;
+  case 64:  ms = 0x2; break;
+  case 32:  ms = 0x3; break;
+  case 16:  ms = 0x4; break;
+  case 8:   ms = 0x5; break;
+  case 4:   ms = 0x6; break;
+  case 2:   ms = 0x7; break;
+  case 1:   ms = 0x8; break;
+  default:  ms = 0x0;
   }
 
   // CHOPCONF: configure microsteps + TOFF + enable interpolation
@@ -37,13 +37,15 @@ void Stepper::Initialize(bool *result) {
   this->_RegWrite(TMC2240_Registers::CHOPCONF, 0x30410150 | (ms << MRES_BIT) | Toff);
 
   // IHOLD_IRUN: run current, hold current, hold delay.
-  this->_RegWrite(TMC2240_Registers::IHOLD_IRUN, 0x00060000 | ((uint32_t)(runningCurrent & 0x1F) << 8) |
-                                      ((uint32_t)(holdingCurrent & 0x1F)));
+  this->_RegWrite(TMC2240_Registers::IHOLD_IRUN, 0x00060000 |
+                                                     ((uint32_t)(runningCurrent & 0x1F) << 8) |
+                                                     ((uint32_t)(holdingCurrent & 0x1F)));
 
   // TPOWERDOWN: delay before switching to hold current (in ~1.6s units)
   this->_RegWrite(TMC2240_Registers::TPOWERDOWN, 10); // e.g. 10 = ~16s
 
   // TPWMTHRS: threshold for switching from stealthChop to spreadCycle
+  // todo: set threshold
   this->_RegWrite(TMC2240_Registers::TPWMTHRS, 0xFFFFF); // Use stealthChop for all speeds
 
   // GCONF: enable StealthChop and diagnostic output config if needed
@@ -61,6 +63,17 @@ void Stepper::Initialize(bool *result) {
     enabled = false;
   } else {
     if (result != nullptr) *result = true;
+    if (!m_tasksStarted) {
+      xTaskCreate(Stepper::task_ComputeRampParam, // function name
+                  "Compute Ramp",                 // task name
+                  200,                            // stack size
+                  this,                           // task parameters
+                  1,                              // task priority
+                  NULL                            // task handle
+      );
+      m_tasksStarted = true;
+    }
+
     enabled = true;
   };
 }
@@ -72,29 +85,33 @@ uint32_t Stepper::HandleRead(uint8_t reg) {
   uint32_t result;
 
   switch (reg) {
-  case Stepper_Registers::TARGET_POSITION            : result = to32Bit(targetPOS); break;
-  case Stepper_Registers::TARGET_RPM                 : result = to32Bit(targetRPM); break;
-  case Stepper_Registers::TEMPERATURE                : result = to32Bit(this->ReadTemperature()); break;
-  case Stepper_Registers::DRV_STATUS                 : result = to32Bit(this->ReadStatus()); break;
-  case Stepper_Registers::MOTOR_STATUS               : result = static_cast<uint32_t>(motorState); break;
-  case Stepper_Registers::OPERATION_MODE             : result = static_cast<uint32_t>(opMode); break;
-  case Stepper_Registers::ACEL_TIME                  : result = to32Bit(timeAcel_ms); break;
-  case Stepper_Registers::DECEL_TIME                 : result = to32Bit(timeDecel_ms); break;
-  case Stepper_Registers::CURRENT_RPM                : result = to32Bit(currentRPM); break;
-  case Stepper_Registers::CURRENT_POS                : result = to32Bit(currentPOS); break;
-  case Stepper_Registers::ACTUAL_ACCELERATION_TIME   : result = to32Bit(actualAcelTime); break;
-  case Stepper_Registers::ACTUAL_DECCELERATION_TIME  : result = to32Bit(actualDecelTime); break;
-  case Stepper_Registers::STOP_ON_STALL              : result = to32Bit(stopOnStall ? 1 : 0); break;
-  case Stepper_Registers::MICROSTEPPING              : result = to32Bit(microstep); break;
-  case Stepper_Registers::RUNNING_CURRENT            : result = to32Bit(runningCurrent); break;
-  case Stepper_Registers::HOLDING_CURRENT_PERCENTAGE : result = to32Bit(holdingCurrentPercentage); break;
-  case Stepper_Registers::STALL_VALUE                : result = to32Bit(this->ReadStallValue()); break;
-  case Stepper_Registers::HOMING_METHOD              : result = static_cast<uint32_t>(homingMethod); break;
-  case Stepper_Registers::HOMING_SENSOR_TRIGGER_VALUE: result = to32Bit(sensorHomeValue ? 1 : 0); break;
-  case Stepper_Registers::REQUEST_HOMING             : result = to32Bit(runHoming ? 1 : 0); break;
-  case Stepper_Registers::HOMED                      : result = to32Bit(homed ? 1 : 0); break;
-  case Stepper_Registers::POSITIONING_MODE           : result = static_cast<uint32_t>(posMode); break;
-  default                             : result = to32Bit(INVALID_REGISTER); break;
+  case Stepper_Registers::TARGET_POSITION:           result = to32Bit(targetPOS); break;
+  case Stepper_Registers::TARGET_RPM:                result = to32Bit(targetRPM); break;
+  case Stepper_Registers::TEMPERATURE:               result = to32Bit(this->ReadTemperature()); break;
+  case Stepper_Registers::DRV_STATUS:                result = to32Bit(this->ReadStatus()); break;
+  case Stepper_Registers::MOTOR_STATUS:              result = static_cast<uint32_t>(motorState); break;
+  case Stepper_Registers::OPERATION_MODE:            result = static_cast<uint32_t>(opMode); break;
+  case Stepper_Registers::ACEL_TIME:                 result = to32Bit(timeAcel_ms); break;
+  case Stepper_Registers::DECEL_TIME:                result = to32Bit(timeDecel_ms); break;
+  case Stepper_Registers::CURRENT_RPM:               result = to32Bit(currentRPM); break;
+  case Stepper_Registers::CURRENT_POS:               result = to32Bit(currentPOS); break;
+  case Stepper_Registers::ACTUAL_ACCELERATION_TIME:  result = to32Bit(actualAcelTime); break;
+  case Stepper_Registers::ACTUAL_DECCELERATION_TIME: result = to32Bit(actualDecelTime); break;
+  case Stepper_Registers::STOP_ON_STALL:             result = to32Bit(stopOnStall ? 1 : 0); break;
+  case Stepper_Registers::MICROSTEPPING:             result = to32Bit(microstep); break;
+  case Stepper_Registers::RUNNING_CURRENT:           result = to32Bit(runningCurrent); break;
+  case Stepper_Registers::HOLDING_CURRENT_PERCENTAGE:
+    result = to32Bit(holdingCurrentPercentage);
+    break;
+  case Stepper_Registers::STALL_VALUE:   result = to32Bit(this->ReadStallValue()); break;
+  case Stepper_Registers::HOMING_METHOD: result = static_cast<uint32_t>(homingMethod); break;
+  case Stepper_Registers::HOMING_SENSOR_TRIGGER_VALUE:
+    result = to32Bit(sensorHomeValue ? 1 : 0);
+    break;
+  case Stepper_Registers::REQUEST_HOMING:   result = to32Bit(runHoming ? 1 : 0); break;
+  case Stepper_Registers::HOMED:            result = to32Bit(homed ? 1 : 0); break;
+  case Stepper_Registers::POSITIONING_MODE: result = static_cast<uint32_t>(posMode); break;
+  default:                                  result = to32Bit(INVALID_REGISTER); break;
   }
 
   return result;
@@ -131,26 +148,30 @@ uint32_t Stepper::HandleWrite(uint8_t reg, uint32_t data) {
   uint32_t result;
 
   switch (reg) {
-  case Stepper_Registers::TARGET_POSITION            : result = this->SetTargetPosition((int32_t)data); break;
-  case Stepper_Registers::TARGET_RPM                 : result = this->SetTargetRPM(data); break;
-  case Stepper_Registers::MOVE                       : result = this->Move(); break;
-  case Stepper_Registers::EMERGENCY_STOP             : result = this->EmergencyStop(); break;
-  case Stepper_Registers::STOP_VELOCITY              : result = this->StopVelocity(); break;
-  case Stepper_Registers::ENABLE_STEPPER             : result = this->EnableStepper(); break;
-  case Stepper_Registers::OPERATION_MODE             : result = this->SetOperationMode(data); break;
-  case Stepper_Registers::ACEL_TIME                  : result = this->SetAccelerationTime(data); break;
-  case Stepper_Registers::DECEL_TIME                 : result = this->SetDeccelerationTime(data); break;
-  case Stepper_Registers::CURRENT_POS                : result = this->SetCurrentPosition(data); break;
-  case Stepper_Registers::STOP_ON_STALL              : result = this->SetStopOnStall(data); break;
-  case Stepper_Registers::MICROSTEPPING              : result = this->SetMicrostepping(data); break;
-  case Stepper_Registers::RUNNING_CURRENT            : result = this->SetRunningCurrent(data); break;
-  case Stepper_Registers::HOLDING_CURRENT_PERCENTAGE : result = this->SetHoldingCurrentPercentage(data); break;
-  case Stepper_Registers::DISABLE_STEPPER            : result = this->DisableStepper(); break;
-  case Stepper_Registers::HOMING_METHOD              : result = this->SetHomingMethod(data); break;
-  case Stepper_Registers::HOMING_SENSOR_TRIGGER_VALUE: result = this->SetHomingSensorTriggerValue(data); break;
-  case Stepper_Registers::REQUEST_HOMING             : result = this->RequestHoming(data); break;
-  case Stepper_Registers::POSITIONING_MODE           : result = this->SetPositioningMode(data); break;
-  default                             : result = INVALID_REGISTER;
+  case Stepper_Registers::TARGET_POSITION: result = this->SetTargetPosition((int32_t)data); break;
+  case Stepper_Registers::TARGET_RPM:      result = this->SetTargetRPM(data); break;
+  case Stepper_Registers::MOVE:            result = this->Move(); break;
+  case Stepper_Registers::EMERGENCY_STOP:  result = this->EmergencyStop(); break;
+  case Stepper_Registers::STOP_VELOCITY:   result = this->StopVelocity(); break;
+  case Stepper_Registers::ENABLE_STEPPER:  result = this->EnableStepper(); break;
+  case Stepper_Registers::OPERATION_MODE:  result = this->SetOperationMode(data); break;
+  case Stepper_Registers::ACEL_TIME:       result = this->SetAccelerationTime(data); break;
+  case Stepper_Registers::DECEL_TIME:      result = this->SetDeccelerationTime(data); break;
+  case Stepper_Registers::CURRENT_POS:     result = this->SetCurrentPosition(data); break;
+  case Stepper_Registers::STOP_ON_STALL:   result = this->SetStopOnStall(data); break;
+  case Stepper_Registers::MICROSTEPPING:   result = this->SetMicrostepping(data); break;
+  case Stepper_Registers::RUNNING_CURRENT: result = this->SetRunningCurrent(data); break;
+  case Stepper_Registers::HOLDING_CURRENT_PERCENTAGE:
+    result = this->SetHoldingCurrentPercentage(data);
+    break;
+  case Stepper_Registers::DISABLE_STEPPER: result = this->DisableStepper(); break;
+  case Stepper_Registers::HOMING_METHOD:   result = this->SetHomingMethod(data); break;
+  case Stepper_Registers::HOMING_SENSOR_TRIGGER_VALUE:
+    result = this->SetHomingSensorTriggerValue(data);
+    break;
+  case Stepper_Registers::REQUEST_HOMING:   result = this->RequestHoming(data); break;
+  case Stepper_Registers::POSITIONING_MODE: result = this->SetPositioningMode(data); break;
+  default:                                  result = INVALID_REGISTER;
   }
   return result;
 }
@@ -280,9 +301,9 @@ uint32_t Stepper::SetOperationMode(uint32_t mode) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (mode) {
-  case 0 : opMode = OpMode::POSITION; break;
-  case 1 : opMode = OpMode::VELOCITY; break;
-  case 2 : opMode = OpMode::INVERSE_TIME; break;
+  case 0:  opMode = OpMode::POSITION; break;
+  case 1:  opMode = OpMode::VELOCITY; break;
+  case 2:  opMode = OpMode::INVERSE_TIME; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -293,8 +314,8 @@ uint32_t Stepper::SetPositioningMode(uint32_t mode) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (mode) {
-  case 0 : posMode = PositioningMode::ABSOLUTE; break;
-  case 1 : posMode = PositioningMode::RELATIVE; break;
+  case 0:  posMode = PositioningMode::ABSOLUTE; break;
+  case 1:  posMode = PositioningMode::RELATIVE; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -314,8 +335,8 @@ uint32_t Stepper::SetDeccelerationTime(uint32_t millis) {
 /* ---------------------------------------------------------------------------------- */
 uint32_t Stepper::SetStopOnStall(uint32_t userInput) {
   switch (userInput) {
-  case 0 : stopOnStall = false; break;
-  case 1 : stopOnStall = true; break;
+  case 0:  stopOnStall = false; break;
+  case 1:  stopOnStall = true; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -325,15 +346,15 @@ uint32_t Stepper::SetMicrostepping(uint32_t userInput) {
   if (motorState != MotorState::IDLE) return WRITE_FAIL;
 
   switch (userInput) {
-  case 1  : microstep = 1; break;
-  case 2  : microstep = 2; break;
-  case 4  : microstep = 4; break;
-  case 8  : microstep = 8; break;
-  case 16 : microstep = 16; break;
-  case 32 : microstep = 32; break;
-  case 64 : microstep = 64; break;
+  case 1:   microstep = 1; break;
+  case 2:   microstep = 2; break;
+  case 4:   microstep = 4; break;
+  case 8:   microstep = 8; break;
+  case 16:  microstep = 16; break;
+  case 32:  microstep = 32; break;
+  case 64:  microstep = 64; break;
   case 128: microstep = 128; break;
-  default : return WRITE_FAIL;
+  default:  return WRITE_FAIL;
   }
 
   bool res;
@@ -392,9 +413,9 @@ uint32_t Stepper::SetHoldingCurrentPercentage(uint32_t userInput) {
 /* ---------------------------------------------------------------------------------- */
 uint32_t Stepper::SetHomingMethod(uint32_t userInput) {
   switch (userInput) {
-  case 0 : homingMethod = HomingMethod::IMMEDIATE; break;
-  case 1 : homingMethod = HomingMethod::TORQUE; break;
-  case 2 : homingMethod = HomingMethod::SENSOR; break;
+  case 0:  homingMethod = HomingMethod::IMMEDIATE; break;
+  case 1:  homingMethod = HomingMethod::TORQUE; break;
+  case 2:  homingMethod = HomingMethod::SENSOR; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -402,8 +423,8 @@ uint32_t Stepper::SetHomingMethod(uint32_t userInput) {
 /* ---------------------------------------------------------------------------------- */
 uint32_t Stepper::SetHomingSensorTriggerValue(uint32_t userInput) {
   switch (userInput) {
-  case 0 : sensorHomeValue = false; break;
-  case 1 : sensorHomeValue = true; break;
+  case 0:  sensorHomeValue = false; break;
+  case 1:  sensorHomeValue = true; break;
   default: return WRITE_FAIL;
   }
   return WRITE_SUCCESS;
@@ -657,6 +678,36 @@ unsigned long Stepper::ComputeTimePeriod() {
 
   return stepDelay;
 }
+
+/* ================================================================================== */
+/*                                        Tasks                                       */
+/* ================================================================================== */
+void Stepper::task_ComputeRampParam(void *parameters) {
+  auto *self = static_cast<Stepper *>(parameters);
+
+  unsigned long stepDelays;
+  while (1) {
+    // Sanity check
+    if (self->m_timerMux == nullptr) continue;
+    if (self->m_hwtimer == nullptr) continue;
+
+    // Compute ramp
+    stepDelays = self->ComputeTimePeriod();
+    portENTER_CRITICAL(self->m_timerMux);
+    if (stepDelays > 0) {
+      *(self->m_run) = true;
+      timerAlarmWrite(self->m_hwtimer, stepDelays, true);
+    } else {
+      *(self->m_run) = false;
+      timerAlarmWrite(self->m_hwtimer, 5000000, true);
+    }
+    portEXIT_CRITICAL(self->m_timerMux);
+  }
+}
+
+/* ================================================================================== */
+/*                                      SPI Comm                                      */
+/* ================================================================================== */
 /* ---------------------------------------------------------------------------------- */
 void Stepper::_RegWrite(const uint8_t address, const uint32_t data) {
   uint8_t buff[5];
@@ -666,7 +717,7 @@ void Stepper::_RegWrite(const uint8_t address, const uint32_t data) {
   buff[3] = static_cast<uint8_t>((data >> 8) & 0xFF);
   buff[4] = static_cast<uint8_t>(data & 0xFF);
 
-  m_spi->SPIExchange(buff, 5, pri_id);
+  m_spi->SPIExchange(buff, 5, m_id);
 }
 /* ---------------------------------------------------------------------------------- */
 void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
@@ -678,7 +729,7 @@ void Stepper::_RegRead(const uint8_t address, uint32_t *data, uint8_t *status) {
     buff[2] = 0x00;
     buff[3] = 0x00;
     buff[4] = 0x00;
-    m_spi->SPIExchange(buff, 5, pri_id);
+    m_spi->SPIExchange(buff, 5, m_id);
   }
 
   /*

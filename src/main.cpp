@@ -41,9 +41,9 @@ void (*timerISRs[MAX_STEPPERS])() = {onTimer0, onTimer1, onTimer2, onTimer3};
 void setupStepper(int index, PinConfig pinConfig, uint8_t csPin, uint8_t timerNum) {
   tmc2240spi.RegisterCSPin(index, csPin);
 
-  steppers[index] = new Stepper(index);
+  steppers[index] =
+      new Stepper(index, &tmc2240spi, &runFlags[index], timers[index], &timerMuxes[index]);
   steppers[index]->ConfigurePin(pinConfig);
-  steppers[index]->InitSPI(&tmc2240spi);
   steppers[index]->Initialize();
   comm.initStepper(index, steppers[index]);
 
@@ -79,20 +79,21 @@ void setup() {
 
 /* ================================== Loop =================================== */
 void loop() {
-  comm.readSerial();
+  // comm.readSerial();
 
-  for (int i = 0; i < MAX_STEPPERS; ++i) {
-    if (!steppers[i]) continue;
+  // for (int i = 0; i < MAX_STEPPERS; ++i) {
+  //   if (!steppers[i]) continue;
 
-    stepDelays[i] = steppers[i]->ComputeTimePeriod();
-    portENTER_CRITICAL(&timerMuxes[i]);
-    if (stepDelays[i] > 0) {
-      runFlags[i] = true;
-      timerAlarmWrite(timers[i], stepDelays[i], true);
-    } else {
-      runFlags[i] = false;
-      timerAlarmWrite(timers[i], ISR_TIME_DEFAULT, true);
-    }
-    portEXIT_CRITICAL(&timerMuxes[i]);
-  }
+  //   stepDelays[i] = steppers[i]->ComputeTimePeriod();
+  //   portENTER_CRITICAL(&timerMuxes[i]);
+  //   if (stepDelays[i] > 0) {
+  //     runFlags[i] = true;
+  //     timerAlarmWrite(timers[i], stepDelays[i], true);
+  //   } else {
+  //     runFlags[i] = false;
+  //     timerAlarmWrite(timers[i], ISR_TIME_DEFAULT, true);
+  //   }
+  //   portEXIT_CRITICAL(&timerMuxes[i]);
+  // }
+  vTaskStartScheduler(); // start all tasks
 }

@@ -3,8 +3,8 @@
 
 #include "Kinematics.h"
 #include "Registers.h"
-#include "TMC2240_SPI.h"
 #include "TMC2240_Registers.h"
+#include "TMC2240_SPI.h"
 #include "Utils.h"
 #include <Arduino.h>
 
@@ -12,7 +12,7 @@
 #define WRITE_FAIL       0x00000000
 #define INVALID_REGISTER 0xFFFFFFFF
 
-enum class MotorState : uint8_t {
+enum class MotorState {
   STALLED   = 0,
   OVERSPEED = 1,
   IDLE      = 2,
@@ -21,23 +21,22 @@ enum class MotorState : uint8_t {
   NOT_INIT  = 5,
 };
 
-enum class HomingMethod : uint8_t {
+enum class HomingMethod {
   IMMEDIATE = 0,
   SENSOR    = 1,
   TORQUE    = 2,
 };
 
-enum class OpMode : uint8_t {
+enum class OpMode {
   POSITION     = 0,
   VELOCITY     = 1,
   INVERSE_TIME = 2,
 };
 
-enum class PositioningMode : uint8_t {
+enum class PositioningMode {
   RELATIVE = 0,
   ABSOLUTE = 1,
 };
-
 
 struct PinConfig {
   uint8_t EN_PIN;
@@ -49,49 +48,107 @@ struct PinConfig {
 
 class Stepper {
 public:
-  Stepper(uint8_t id);
-  // set
+  Stepper(uint8_t id, TMC2240_SPI *tmc2240spi, volatile bool *run, hw_timer_t *hwtimer,
+          portMUX_TYPE *timerMux);
+
+  /* ====================================== Setup ===================================== */
+  /* Configure pinouts */
   void ConfigurePin(PinConfig pin);
-  void InitSPI(TMC2240_SPI *tmc2240spi);
+
+  /* Initialize driver */
   void Initialize(bool *result = nullptr);
 
-  // read
+  /* ====================================== Read ====================================== */
+  /* Handles read queries from comm class */
   uint32_t HandleRead(uint8_t reg);
-  float    ReadTemperature();
-  uint16_t ReadStallValue();
-  uint8_t  ReadStatus();
 
-  // write
+  /* Returns driver temperature */
+  float ReadTemperature();
+
+  /* Returns StallGuard value */
+  uint16_t ReadStallValue();
+
+  /* Returns driver status */
+  uint8_t ReadStatus();
+
+  /* ====================================== Write ===================================== */
+  /* Handles write requests from comm class */
   uint32_t HandleWrite(uint8_t reg, uint32_t data);
+
+  /* Sets target position (unit: microstep) */
   uint32_t SetTargetPosition(int32_t pos);
+
+  /* Overrides current position (unit: microstep) */
   uint32_t SetCurrentPosition(int32_t pos);
+
+  /* Sets target speed (unit: rpm) */
   uint32_t SetTargetRPM(uint32_t rpm);
+
+  /* Starts movement with current settings */
   uint32_t Move();
+
+  /* Stops motion immediately */
   uint32_t EmergencyStop();
+
+  /* Ramp stop (velocity mode only) */
   uint32_t StopVelocity();
+
+  /* Reinitializes stepper */
   uint32_t EnableStepper();
+
+  /* Disables stepper (only in idle state) */
   uint32_t DisableStepper();
+
+  /* Sets operation mode (pos / vel / ivt) */
   uint32_t SetOperationMode(uint32_t mode);
+
+  /* Sets positioning mode (abs / rel) */
   uint32_t SetPositioningMode(uint32_t mode);
+
+  /* Sets acceleration time (unit: milliseconds)*/
   uint32_t SetAccelerationTime(uint32_t millis);
+
+  /* Sets decceleration time (units: milliseconds) */
   uint32_t SetDeccelerationTime(uint32_t millis);
+
+  /* Sets stopOnStall flag */
   uint32_t SetStopOnStall(uint32_t userInput);
+
+  /* Sets microstepping value */
   uint32_t SetMicrostepping(uint32_t userInput);
+
+  /* Sets running current (1-31) */
   uint32_t SetRunningCurrent(uint32_t userInput);
+
+  /* Sets holding current percentage (scales with running current) */
   uint32_t SetHoldingCurrentPercentage(uint32_t userInput);
+
+  /* Sets homing method (immediate / torque / sensor) */
   uint32_t SetHomingMethod(uint32_t userInput);
+
+  /* Sets homing trigger value to HL / LH (sensor only) */
   uint32_t SetHomingSensorTriggerValue(uint32_t userInput);
+
+  /* Initializes homing movement */
   uint32_t RequestHoming(uint32_t userInput);
 
-  // action
-  void          Run();
-  void          MoveInverseTime(); // TODO
+  /* =========================== Ramp Generation & Stepping =========================== */
+  /* Steps pin & handles current position */
+  void Run();
+
+  /* Inverse time move (?) */
+  void MoveInverseTime(); // TODO
+
+  /* Computes interrupt pulse width */
   unsigned long ComputeTimePeriod();
 
 private:
-  uint8_t      pri_id;
-  PinConfig    m_pinConfig;
-  TMC2240_SPI *m_spi;
+  uint8_t        m_id;
+  PinConfig      m_pinConfig;
+  TMC2240_SPI   *m_spi;
+  volatile bool *m_run;                // run flag
+  hw_timer_t    *m_hwtimer  = nullptr; // timer instance
+  portMUX_TYPE  *m_timerMux = nullptr; // mutex
 
   bool            enabled         = false;
   OpMode          opMode          = OpMode::POSITION;
@@ -167,7 +224,16 @@ private:
   uint32_t      sDecel           = 0;
   uint32_t      sDecelRecomputed = 0;
 
-  // Driver Comm
+  /* ================================================================================== */
+  /*                                        Tasks                                       */
+  /* ================================================================================== */
+  bool m_tasksStarted = false;
+  /* Ramp generation */
+  static void task_ComputeRampParam(void *parameters);
+
+  /* ================================================================================== */
+  /*                                    Driver Comms                                    */
+  /* ================================================================================== */
   const uint8_t Toff = {0x01};
   void          _RegWrite(const uint8_t address, const uint32_t data);
   void          _RegRead(const uint8_t address, uint32_t *data, uint8_t *status);

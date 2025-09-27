@@ -1,22 +1,31 @@
 #include "Comm.h"
 
-void Comm::init(Stream *serial) { m_serial = serial; }
+void Comm::init(Stream *serial) {
+  m_serial = serial;
+  if (!m_tasksStarted) {
+    xTaskCreate(Comm::task_serialRead, // function name
+                "Serial Read",         // task name
+                200,                   // stack size
+                this,                  // task parameters
+                1,                     // task priority
+                NULL                   // task handle
+    );
+    m_tasksStarted = true;
+  }
+}
 void Comm::readSerial() {
-  /*   ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-   *   │   Format of the message transmitted over serial: │ │ │ │
-   *   ┌────────┬───────────┬─────────────┬────────────┬─────────────┬───────────────┬────────────┬────────┐
-   *   │ │   │   SB   │ DEVICE ID │ INSTRUCTION │ STEPPER ID │   REGISTER  │   32-BIT DATA │ 32-BIT
-   *   │   EB   │ │ │   │        │           │             │            │             │ │    CRC │
-   *   │ │ │
-   * ├────────┼───────────┼─────────────┼────────────┼─────────────┼───────────────┼────────────┼────────┤
-   * │ │   │ Start  │ Device ID │ Instruction │ Stepper ID │ Register    │ Data to send  │ Error │
-   * End   │ │ │   │  Byte  │ 1 Byte    │   1 Byte    │   1 Byte   │ Address     │ or receive    │
-   * Detection  │  Byte  │ │ │   │        │           │             │            │             │ │
-   * (CRC32)   │        │ │ │
-   * └────────┴───────────┴─────────────┴────────────┴─────────────┴───────────────┴────────────┴────────┘
-   * │
-   *   └─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  /*
+   * ┌────────────────────────────────────────────────────────────────────────────────────────────┐
+   * │     Format of the message transmitted over serial:                                         │
+   * ├────────┬───────────┬──────────┬────────────┬────────────┬───────────────┬──────────┬───────┤
+   * │  SB    │ DEVICE ID │ INSTRUCT │ STEPPER ID │  REGISTER  │   32-BIT DATA │    CRC   │  EB   │
+   * ├────────┼───────────┼──────────┼────────────┼────────────┼───────────────┼──────────┼───────┤
+   * │ Start  │ Device ID │ Instruct │ Stepper ID │ Register   │ Data to send  │ Error    │ End   │
+   * │ Byte   │   1 Byte  │   1 Byte │   1 Byte   │ Address    │ or receive    │ Detection│ Byte  │
+   * │        │           │          │            │            │   (32-bit)    │  (CRC32) │       │
+   * └────────┴───────────┴──────────┴────────────┴────────────┴───────────────┴──────────┴───────┘
    */
+
   if (m_serial == nullptr) return;
 
   if (m_serial->available() == 0) return;
@@ -180,4 +189,14 @@ void Comm::pri_execCommand(message msg) {
   m_serial->write((response.crc >> 8) & 0xFF);
   m_serial->write(response.crc & 0xFF);
   m_serial->write(response.end_byte); // End byte
+}
+
+/* ================================================================================== */
+/*                                        Task                                        */
+/* ================================================================================== */
+void Comm::task_serialRead(void *parameters) {
+  auto *self = static_cast<Comm *>(parameters);
+
+  while (1)
+    self->readSerial();
 }

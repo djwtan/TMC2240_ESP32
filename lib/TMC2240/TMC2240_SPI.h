@@ -4,16 +4,11 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-#define NULL_PIN 0
-
 class TMC2240_SPI {
 public:
   TMC2240_SPI();
 
-  uint8_t cspins[4] = {};
-
-  void RegisterCSPin(uint8_t num, uint8_t pin);
-  void SPIExchange(uint8_t *data, const int size, uint8_t num);
+  void SPIExchange(uint8_t *data, const int size, uint8_t pin_num);
 
 private:
   SPISettings spiSettings;

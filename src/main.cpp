@@ -39,8 +39,6 @@ void (*timerISRs[MAX_STEPPERS])() = {onTimer0, onTimer1, onTimer2, onTimer3};
 
 /* =============================== Setup Helper =============================== */
 void setupStepper(int index, PinConfig pinConfig, uint8_t csPin, uint8_t timerNum) {
-  tmc2240spi.RegisterCSPin(index, csPin);
-
   steppers[index] =
       new Stepper(index, &tmc2240spi, &runFlags[index], timers[index], &timerMuxes[index]);
   steppers[index]->ConfigurePin(pinConfig);
@@ -84,7 +82,7 @@ void loop() {
   // for (int i = 0; i < MAX_STEPPERS; ++i) {
   //   if (!steppers[i]) continue;
 
-  //   stepDelays[i] = steppers[i]->ComputeTimePeriod();
+  //   stepDelays[i] = steppers[i]->ComputeTickPeriod();
   //   portENTER_CRITICAL(&timerMuxes[i]);
   //   if (stepDelays[i] > 0) {
   //     runFlags[i] = true;

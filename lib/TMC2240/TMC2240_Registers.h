@@ -1,6 +1,8 @@
 #ifndef TMC2240_REGISTERS_H
 #define TMC2240_REGISTERS_H
 
+#include <cstdint>
+
 namespace TMC2240_Registers {
 constexpr uint8_t CHOPCONF      = 0x6C;
 constexpr uint8_t IHOLD_IRUN    = 0x10;
@@ -12,5 +14,12 @@ constexpr uint8_t PWMCONF       = 0x70;
 constexpr uint8_t SG_RESULT_IND = 0x75;
 constexpr uint8_t TEMPERATURE   = 0x51;
 } // namespace TMC2240_Registers
+
+namespace TMC2240_StatusFlag {
+constexpr uint8_t DRV_RESET  = 0;
+constexpr uint8_t DRV_ERR    = 1;
+constexpr uint8_t STALLGUARD = 2;
+constexpr uint8_t STANDSTILL = 3;
+} // namespace TMC2240_StatusFlag
 
 #endif

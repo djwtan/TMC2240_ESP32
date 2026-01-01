@@ -1,13 +1,13 @@
-from comm import *
+from ttSb import *
 import serial
 import threading
 
 # ==================================================================================== #
 #                                       Settings                                       #
 # ==================================================================================== #
-PORT      = "COM7"
+PORT = "COM7"
 DEVICE_ID = 0x01
-STEPPERS  = [
+STEPPERS = [
     0x00,
     0x01,
     0x02,
@@ -18,25 +18,27 @@ MOTION_1 = {
     0x01: (-1, 800, 1000, 1000),
     0x02: (1, 50, 1000, 1000),
     0x03: (1, 800, 1000, 1000),
-} # (position, rpm, acceleration, decceleration)
+}  # (position, rpm, acceleration, decceleration)
 MOTION_2 = {
     0x00: (1, 1400, 1000, 1000),
     0x01: (-1, 50, 1000, 1000),
     0x02: (1, 800, 1000, 1000),
     0x03: (1, 50, 1000, 1000),
-} # (position, rpm, acceleration, decceleration)
+}  # (position, rpm, acceleration, decceleration)
 MOTION_3 = {
     0x00: (1, 400, 1000, 1000),
     0x01: (-1, 400, 1000, 1000),
     0x02: (1, 400, 1000, 1000),
     0x03: (1, 400, 1000, 1000),
-} # (position, rpm, acceleration, decceleration)
+}  # (position, rpm, acceleration, decceleration)
 
 # ==================================================================================== #
 #                                         Print                                        #
 # ==================================================================================== #
 print_status = False
-def read_status(controller: ESP32_TMC2240_API, steppers):
+
+
+def read_status(controller: ttSbAPI, steppers):
     global print_status
     MSG = "({}) | Status: ({:^5}) | Rpm: {:^10} / {:^10} |"
 
@@ -45,26 +47,28 @@ def read_status(controller: ESP32_TMC2240_API, steppers):
             continue
 
         for stepper in steppers:
-            motor_status     = controller.read(stepper, Register.MOTOR_STATUS)
-            current_rpm      = controller.read_current_rpm(stepper)
-            target_rpm       = controller.read_target_rpm(stepper)
+            motor_status = controller.read(stepper, Register.MOTOR_STATUS)
+            current_rpm = controller.read_current_rpm(stepper)
+            target_rpm = controller.read_target_rpm(stepper)
 
-            print(MSG.format(
-                stepper, 
-                MotorStatus.get_name(motor_status), 
-                current_rpm, 
-                target_rpm)
-            )
+            print(MSG.format(stepper, MotorStatus.get_name(motor_status), current_rpm, target_rpm))
 
 
 if __name__ == "__main__":
     # =============================== Initialize Controller ============================== #
-    PORT               = serial.Serial(PORT, 115200, timeout=1, dsrdtr=None)
-    LOCK               = threading.Lock()
-    STEPPER_CONTROLLER = ESP32_TMC2240_API(PORT, LOCK, DEVICE_ID)
+    PORT = serial.Serial(PORT, 115200, timeout=1, dsrdtr=None)
+    LOCK = threading.Lock()
+    STEPPER_CONTROLLER = ttSbAPI(PORT, LOCK, DEVICE_ID)
 
     # ==================================== Read thread =================================== #
-    threading.Thread(target=read_status, daemon=True, args=(STEPPER_CONTROLLER, STEPPERS,)).start()
+    threading.Thread(
+        target=read_status,
+        daemon=True,
+        args=(
+            STEPPER_CONTROLLER,
+            STEPPERS,
+        ),
+    ).start()
 
     # ================================ Initialize stepper ================================ #
     res = []
@@ -72,11 +76,11 @@ if __name__ == "__main__":
         res.append(
             STEPPER_CONTROLLER.init_stepper(
                 stepper,
-                stop_on_stall              = False,
-                microstepping              = 4,
-                current                    = 31,
-                holding_current_percentage = 50,
-                operation_mode             = OpMode.VELOCITY,
+                stop_on_stall=False,
+                microstepping=4,
+                current=31,
+                holding_current_percentage=50,
+                operation_mode=OpMode.VELOCITY,
             )
         )
         STEPPER_CONTROLLER.enable_stepper(0)

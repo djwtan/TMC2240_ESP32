@@ -1,13 +1,14 @@
 #ifndef MOTION_H
 #define MOTION_H
 
-#include <Arduino.h>
+#include <cstdint>
+#include <math.h>
 
-inline float curveP1(double n, long x, float min) { return (float)(n * x * x + min); }
+static inline float curveP1(double n, long x, float min) { return (float)(n * x * x + min); }
 
-inline float curveP2(double n, long x, float max) { return (float)(-n * x * x + max); }
+static inline float curveP2(double n, long x, float max) { return (float)(-n * x * x + max); }
 
-inline double decelStepCorrection(uint32_t s, float rpm) {
+static inline double decelStepCorrection(uint32_t s, float rpm) {
   /* ============================= Logarithmic correction ============================= */
   float c1 = (0.2108 * log(rpm) - 1.2824);
 

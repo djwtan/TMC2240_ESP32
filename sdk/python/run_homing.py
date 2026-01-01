@@ -1,4 +1,4 @@
-from comm import *
+from ttSb import *
 import serial
 import threading
 
@@ -6,7 +6,7 @@ comm_port = serial.Serial("COM22", 115200, timeout=1, dsrdtr=None)
 comm_lock = threading.Lock()
 device_id = 0x01
 
-stepper_controller = ESP32_TMC2240_API(comm_port, comm_lock, device_id)
+stepper_controller = ttSbAPI(comm_port, comm_lock, device_id)
 
 
 def init_driver():

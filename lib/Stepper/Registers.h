@@ -1,7 +1,9 @@
 #ifndef REGISTERS_H
 #define REGISTERS_H
 
-namespace Stepper_Registers {
+#include <cstdint>
+
+namespace S_Reg {
 constexpr uint8_t TARGET_POSITION             = 0x00;
 constexpr uint8_t TARGET_RPM                  = 0x01;
 constexpr uint8_t MOVE                        = 0x02;
@@ -29,6 +31,6 @@ constexpr uint8_t HOMING_SENSOR_TRIGGER_VALUE = 0X17;
 constexpr uint8_t REQUEST_HOMING              = 0X18;
 constexpr uint8_t HOMED                       = 0x19;
 constexpr uint8_t POSITIONING_MODE            = 0x1A;
-} // namespace Stepper_Registers
+} // namespace S_Reg
 
 #endif

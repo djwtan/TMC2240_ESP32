@@ -1,7 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <Arduino.h>
+#include <cstdint>
 
 template <typename T> uint32_t to32Bit(T value) {
   uint32_t result = 0;

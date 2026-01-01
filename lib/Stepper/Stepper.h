@@ -2,17 +2,20 @@
 #define STEPPER_H
 
 #include "Kinematics.h"
+#include "Ramp_SCurve.h"
+#include "Ramp_Trapezoidal.h"
 #include "Registers.h"
 #include "TMC2240_Registers.h"
 #include "TMC2240_SPI.h"
 #include "Utils.h"
+#include "functional"
 #include <Arduino.h>
 
 #define WRITE_SUCCESS    0x00000001
 #define WRITE_FAIL       0x00000000
 #define INVALID_REGISTER 0xFFFFFFFF
 
-enum class MotorState {
+enum class Status {
   STALLED   = 0,
   OVERSPEED = 1,
   IDLE      = 2,
@@ -139,8 +142,16 @@ public:
   /* Inverse time move (?) */
   void MoveInverseTime(); // TODO
 
-  /* Computes interrupt pulse width */
-  unsigned long ComputeTimePeriod();
+  bool IsStalled(uint32_t sg_data, uint8_t status);
+  bool IsRunning();
+
+  /**
+   * @brief Compute Interrupt Pulse
+   * @todo Rework so that it doesn't depend on stepper
+   *
+   * @return unsigned long
+   */
+  unsigned long ComputeTickPeriod();
 
 private:
   uint8_t        m_id;
@@ -165,7 +176,7 @@ private:
   const int32_t DUMMY_NEGATIVE = -500000;
 
   // Set
-  uint8_t microstep                = 4;
+  uint8_t microstep                = 1;
   uint8_t runningCurrent           = 31;
   uint8_t holdingCurrentPercentage = 50;
   uint8_t holdingCurrent           = runningCurrent * holdingCurrentPercentage / 100;
@@ -184,15 +195,14 @@ private:
   unsigned long actualAcelTime  = 0;
   unsigned long actualDecelTime = 0;
 
-  // ReadBack & MotorState
-  MotorState motorState = MotorState::NOT_INIT;
-  void       _UpdateMotorState(MotorState mState);
+  // ReadBack & Status
+  Status m_status = Status::NOT_INIT;
+  void   UpdateStatus(Status status);
 
   // StallGuard
   // todo: expose these values
   const float threshLow  = 40.0f;
   const float threshHigh = 150.0f;
-  bool        _IsStalled();
 
   // Movement
   void _ComputeAccelerationParameters();
@@ -211,6 +221,20 @@ private:
   unsigned long timeStamp   = micros();
   uint32_t      sAbs        = 0;
 
+  // !NEW
+  unsigned long UpdateTickPeriod(TickType_t dt_ticks);
+
+  volatile int32_t current_pulse = 0;
+  int32_t          target_pulse  = 0;
+  float            current_speed = 0.0f;
+  float            target_speed  = 0.0f;
+  float            acceleration  = 0.0f;
+  float            deceleration  = 0.0f;
+  float            jerk          = 0.0f;
+
+  bool use_s_curve = false;
+  // !NEW
+
   // calculation
   bool          recomputeParam   = false;
   unsigned long t_0              = 0UL;
@@ -224,6 +248,9 @@ private:
   uint32_t      sDecel           = 0;
   uint32_t      sDecelRecomputed = 0;
 
+  bool m_is_stalled  = false;
+  bool m_in_position = true;
+
   /* ================================================================================== */
   /*                                        Tasks                                       */
   /* ================================================================================== */
@@ -231,12 +258,15 @@ private:
   /* Ramp generation */
   static void task_ComputeRampParam(void *parameters);
 
+  /* Status */
+  static void task_UpdateStatus(void *parameters);
+
   /* ================================================================================== */
   /*                                    Driver Comms                                    */
   /* ================================================================================== */
   const uint8_t Toff = {0x01};
-  void          _RegWrite(const uint8_t address, const uint32_t data);
-  void          _RegRead(const uint8_t address, uint32_t *data, uint8_t *status);
+  void          WriteRegister(const uint8_t address, const uint32_t data);
+  void          ReadRegister(const uint8_t address, uint32_t *data, uint8_t *status);
 };
 
 #endif // STEPPER_H

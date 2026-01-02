@@ -28,7 +28,7 @@ def init_driver():
     print(response)
     response = stepper_controller.write(Register.RUNNING_CURRENT, 31)  # 1-31
     print(response)
-    response = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 50)  # 0-100
+    response = stepper_controller.write(Register.HOLDING_CURRENT, 50)  # 0-100
     print(response)
     # Homing can be performed in both position and velocity mode.
     response = stepper_controller.write(Register.OPERATION_MODE, OpMode.POSITION)  # position mode

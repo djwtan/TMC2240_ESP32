@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 stop_on_stall=False,
                 microstepping=4,
                 current=31,
-                holding_current_percentage=100,
+                holding_current=100,
                 operation_mode=OpMode.POSITION,
                 positioning_mode=PositioningMode.ABSOLUTE,
             )

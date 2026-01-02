@@ -74,7 +74,7 @@ class Register(IntEnum):
     STOP_ON_STALL = 0x10
     MICROSTEPPING = 0x11
     RUNNING_CURRENT = 0x12
-    HOLDING_CURRENT_PERCENTAGE = 0x13
+    HOLDING_CURRENT = 0x13
     DISABLE_STEPPER = 0x14
     STALL_VALUE = 0x15
     HOMING_METHOD = 0x16
@@ -261,7 +261,7 @@ class ttSbAPI:
         stop_on_stall: bool = False,
         microstepping: int = 4,
         current: int = 31,
-        holding_current_percentage: int = 50,
+        holding_current: int = 16,
         operation_mode: OpMode = OpMode.POSITION,
         positioning_mode: PositioningMode = PositioningMode.ABSOLUTE,
     ) -> bool:
@@ -275,7 +275,7 @@ class ttSbAPI:
             self.write(stepper_id, Register.STOP_ON_STALL, int(stop_on_stall)),
             self.write(stepper_id, Register.MICROSTEPPING, microstepping),
             self.write(stepper_id, Register.RUNNING_CURRENT, current),
-            self.write(stepper_id, Register.HOLDING_CURRENT_PERCENTAGE, holding_current_percentage),
+            self.write(stepper_id, Register.HOLDING_CURRENT, holding_current),
             self.write(stepper_id, Register.OPERATION_MODE, operation_mode),
             self.write(stepper_id, Register.POSITIONING_MODE, positioning_mode),
         ]
@@ -293,8 +293,8 @@ class ttSbAPI:
         stepper_id: int,
         target_position: int,
         rpm: int,
-        acceleration_time_ms: int = None,
-        decceleration_time_ms: int = None,
+        acceleration_time_ms: int | None = None,
+        decceleration_time_ms: int | None = None,
     ) -> bool:
         """
         Configure motion parameters for a stepper motor.

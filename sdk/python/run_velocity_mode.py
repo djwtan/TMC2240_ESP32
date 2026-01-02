@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 stop_on_stall=False,
                 microstepping=4,
                 current=31,
-                holding_current_percentage=50,
+                holding_current=50,
                 operation_mode=OpMode.VELOCITY,
             )
         )

@@ -29,7 +29,7 @@ for stepper in STEPPERS:
         stop_on_stall=False,
         microstepping=4,
         current=31,
-        holding_current_percentage=100,
+        holding_current=100,
         operation_mode=OpMode.POSITION,
         positioning_mode=PositioningMode.ABSOLUTE,
     )
@@ -205,7 +205,7 @@ def reset(stepper: int):
         stop_on_stall=False,
         microstepping=4,
         current=31,
-        holding_current_percentage=100,
+        holding_current=100,
         operation_mode=OpMode.POSITION,
         positioning_mode=PositioningMode.ABSOLUTE,
     )

@@ -1,7 +1,6 @@
 #ifndef STEPPER_H
 #define STEPPER_H
 
-#include "Kinematics.h"
 #include "Ramp_SCurve.h"
 #include "Ramp_Trapezoidal.h"
 #include "Registers.h"
@@ -51,7 +50,7 @@ struct PinConfig {
 
 class Stepper {
 public:
-  Stepper(uint8_t id, TMC2240_SPI *tmc2240spi, volatile bool *run, hw_timer_t *hwtimer,
+  Stepper(uint8_t id, PinConfig pinConfig, TMC2240_SPI *tmc2240spi, hw_timer_t *hwtimer,
           portMUX_TYPE *timerMux);
 
   /* ====================================== Setup ===================================== */
@@ -59,7 +58,7 @@ public:
   void ConfigurePin(PinConfig pin);
 
   /* Initialize driver */
-  void Initialize(bool *result = nullptr);
+  bool Initialize();
 
   /* ====================================== Read ====================================== */
   /* Handles read queries from comm class */
@@ -79,61 +78,61 @@ public:
   uint32_t HandleWrite(uint8_t reg, uint32_t data);
 
   /* Sets target position (unit: microstep) */
-  uint32_t SetTargetPosition(int32_t pos);
+  bool SetTargetPosition(int32_t pos);
 
   /* Overrides current position (unit: microstep) */
-  uint32_t SetCurrentPosition(int32_t pos);
+  bool SetCurrentPosition(int32_t pos);
 
   /* Sets target speed (unit: rpm) */
-  uint32_t SetTargetRPM(uint32_t rpm);
+  bool SetTargetRPM(uint32_t rpm);
 
   /* Starts movement with current settings */
-  uint32_t Move();
+  bool Move();
 
   /* Stops motion immediately */
-  uint32_t EmergencyStop();
+  bool EmergencyStop();
 
   /* Ramp stop (velocity mode only) */
-  uint32_t StopVelocity();
+  bool StopVelocity();
 
   /* Reinitializes stepper */
-  uint32_t EnableStepper();
+  bool EnableStepper();
 
   /* Disables stepper (only in idle state) */
-  uint32_t DisableStepper();
+  bool DisableStepper();
 
   /* Sets operation mode (pos / vel / ivt) */
-  uint32_t SetOperationMode(uint32_t mode);
+  bool SetOperationMode(uint32_t mode);
 
   /* Sets positioning mode (abs / rel) */
-  uint32_t SetPositioningMode(uint32_t mode);
+  bool SetPositioningMode(uint32_t mode);
 
   /* Sets acceleration time (unit: milliseconds)*/
-  uint32_t SetAccelerationTime(uint32_t millis);
+  bool SetAccelerationTime(uint32_t millis);
 
   /* Sets decceleration time (units: milliseconds) */
-  uint32_t SetDeccelerationTime(uint32_t millis);
+  bool SetDeccelerationTime(uint32_t millis);
 
   /* Sets stopOnStall flag */
-  uint32_t SetStopOnStall(uint32_t userInput);
+  bool SetStopOnStall(uint32_t userInput);
 
   /* Sets microstepping value */
-  uint32_t SetMicrostepping(uint32_t userInput);
+  bool SetMicrostepping(uint32_t userInput);
 
   /* Sets running current (1-31) */
-  uint32_t SetRunningCurrent(uint32_t userInput);
+  bool SetRunningCurrent(uint32_t userInput);
 
   /* Sets holding current percentage (scales with running current) */
-  uint32_t SetHoldingCurrentPercentage(uint32_t userInput);
+  bool SetHoldingCurrentPercentage(uint32_t userInput);
 
   /* Sets homing method (immediate / torque / sensor) */
-  uint32_t SetHomingMethod(uint32_t userInput);
+  bool SetHomingMethod(uint32_t userInput);
 
   /* Sets homing trigger value to HL / LH (sensor only) */
-  uint32_t SetHomingSensorTriggerValue(uint32_t userInput);
+  bool SetHomingSensorTriggerValue(uint32_t userInput);
 
   /* Initializes homing movement */
-  uint32_t RequestHoming(uint32_t userInput);
+  bool RequestHoming(uint32_t userInput);
 
   /* =========================== Ramp Generation & Stepping =========================== */
   /* Steps pin & handles current position */
@@ -142,123 +141,89 @@ public:
   /* Inverse time move (?) */
   void MoveInverseTime(); // TODO
 
-  bool IsStalled(uint32_t sg_data, uint8_t status);
-  bool IsRunning();
-
-  /**
-   * @brief Compute Interrupt Pulse
-   * @todo Rework so that it doesn't depend on stepper
-   *
-   * @return unsigned long
-   */
-  unsigned long ComputeTickPeriod();
+  /* ---------------------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------------------- */
 
 private:
-  uint8_t        m_id;
-  PinConfig      m_pinConfig;
-  TMC2240_SPI   *m_spi;
-  volatile bool *m_run;                // run flag
-  hw_timer_t    *m_hwtimer  = nullptr; // timer instance
-  portMUX_TYPE  *m_timerMux = nullptr; // mutex
-
-  bool            enabled         = false;
-  OpMode          opMode          = OpMode::POSITION;
-  PositioningMode posMode         = PositioningMode::ABSOLUTE;
-  HomingMethod    homingMethod    = HomingMethod::IMMEDIATE;
-  bool            sensorHomeValue = false;
-
-  // Return
-  String _GenerateMessage();
+  uint8_t       m_id;
+  PinConfig     m_pinConfig;
+  TMC2240_SPI  *m_spi;
+  hw_timer_t   *m_hwtimer  = nullptr; // timer instance
+  portMUX_TYPE *m_timerMux = nullptr; // mutex
 
   // Default
-  const float   MAX_RPM        = 2400.0f;
-  const int32_t DUMMY_POSITIVE = 500000;
-  const int32_t DUMMY_NEGATIVE = -500000;
 
-  // Set
-  uint8_t microstep                = 1;
-  uint8_t runningCurrent           = 31;
-  uint8_t holdingCurrentPercentage = 50;
-  uint8_t holdingCurrent           = runningCurrent * holdingCurrentPercentage / 100;
+  /* ================================================================================== */
+  /*                                    Configurables                                   */
+  /* ================================================================================== */
 
-  int32_t targetPOS      = 0;
-  int32_t targetPOSHold  = 0;
-  float   targetRPM      = 0;
-  float   targetRPM_Hold = 0;
-  double  timeAcel_ms    = 2 * 1000000UL;
-  double  timeDecel_ms   = 2 * 1000000UL;
-  bool    stopOnStall    = false;
-  bool    runHoming      = false;
-  bool    homed          = false;
+  // Motion Settings
+  struct MotionSettings {
+    OpMode          opMode       = OpMode::POSITION;
+    PositioningMode posMode      = PositioningMode::ABSOLUTE;
+    bool            useSCurve    = false;
+    int32_t         targetPulse  = 0;
+    float           targetSpeed  = 0.0f;
+    float           acceleration = 0.0f;
+    float           deceleration = 0.0f;
+    float           jerk         = 0.0f;
+  };
 
-  // Test
-  unsigned long actualAcelTime  = 0;
-  unsigned long actualDecelTime = 0;
+  // Driver Settings
+  struct DriverSettings {
+    uint8_t  microstep      = 4; // ---------- motion
+    uint8_t  fullstepPerRev = 200;
+    uint32_t unitsPerRev    = 360;
+    uint8_t  runningCurrent = 31; // --------- current
+    uint8_t  holdingCurrent = 16;
+    bool     sg_enable      = false; // ------ stall detection
+    float    sg_threshLow   = 40.0f;
+    float    sg_threshHigh  = 150.0f;
+  };
+
+  // Homing Settings
+  struct HomingSettings {
+    HomingMethod homingMethod = HomingMethod::IMMEDIATE;
+    bool         lh           = false; // low to high
+  };
+
+  DriverSettings drvS;
+  MotionSettings motionS;
+  HomingSettings homingS;
+
+  /* ================================================================================== */
+  /*                                  Flags & Statuses                                  */
+  /* ================================================================================== */
 
   // ReadBack & Status
-  Status m_status = Status::NOT_INIT;
   void   UpdateStatus(Status status);
+  Status m_status = Status::NOT_INIT;
 
-  // StallGuard
-  // todo: expose these values
-  const float threshLow  = 40.0f;
-  const float threshHigh = 150.0f;
+  // Flags
+  bool m_step        = true;  // (f) Pin state for next step
+  bool m_direction   = true;  // (f) Direction
+  bool m_isStalled   = false; // (f) Stall
+  bool m_isRunning   = false; // (f) Running
+  bool m_inPosition  = true;  // (f) In Position
+  bool m_move        = false; // (f) Move command
+  bool m_drv_enabled = false; // (f) enable pin tracker
 
-  // Movement
-  void _ComputeAccelerationParameters();
-  void _ComputeDeccelerationParameters(float vmax);
-
-  // Driven
-  volatile int32_t currentPOS = 0;
-  bool             _step      = true;
-
-  float         currentRPM  = 0.0f;
-  float         peakRPM     = 0.0f;
-  bool          direction   = true;
-  bool          acelerating = false;
-  float         minRPM      = 0.0f;
-  unsigned long stepDelay   = 0UL;
-  unsigned long timeStamp   = micros();
-  uint32_t      sAbs        = 0;
-
-  // !NEW
-  unsigned long UpdateTickPeriod(TickType_t dt_ticks);
-
-  volatile int32_t current_pulse = 0;
-  int32_t          target_pulse  = 0;
-  float            current_speed = 0.0f;
-  float            target_speed  = 0.0f;
-  float            acceleration  = 0.0f;
-  float            deceleration  = 0.0f;
-  float            jerk          = 0.0f;
-
-  bool use_s_curve = false;
-  // !NEW
-
-  // calculation
-  bool          recomputeParam   = false;
-  unsigned long t_0              = 0UL;
-  unsigned long tDecel_0         = 0UL;
-  int32_t       s_0              = 0;
-  float         v_0              = 0.0f;
-  uint32_t      sTotal           = 0;
-  double        nAcel            = 0.0;
-  uint32_t      sAcel            = 0;
-  float         mDecel           = 0.0f;
-  uint32_t      sDecel           = 0;
-  uint32_t      sDecelRecomputed = 0;
-
-  bool m_is_stalled  = false;
-  bool m_in_position = true;
+  // Ramp
+  volatile int32_t m_currentPulse = 0;
+  float            m_currentSpeed = 0.0f;
 
   /* ================================================================================== */
   /*                                        Tasks                                       */
   /* ================================================================================== */
   bool m_tasksStarted = false;
+
   /* Ramp generation */
-  static void task_ComputeRampParam(void *parameters);
+  unsigned long UpdateTickPeriod(TickType_t dt_ticks);
+  static void   task_ComputeRampParam(void *parameters);
 
   /* Status */
+  bool        IsStalled(uint32_t sg_data, uint8_t status);
   static void task_UpdateStatus(void *parameters);
 
   /* ================================================================================== */
@@ -267,6 +232,24 @@ private:
   const uint8_t Toff = {0x01};
   void          WriteRegister(const uint8_t address, const uint32_t data);
   void          ReadRegister(const uint8_t address, uint32_t *data, uint8_t *status);
+
+  /* ================================================================================== */
+  /*                                        Math                                        */
+  /* ================================================================================== */
+  int32_t  unitToPulse(int32_t unit);
+  int32_t  pulseToUnit(int32_t pulse);
+  float    rpmToSpeed(uint32_t rpm);
+  uint32_t speedToRpm(float speed);
+
+  /* ================================================================================== */
+  /*                                   Driver Control                                   */
+  /* ================================================================================== */
+  void enableDriver(bool enable) {
+    if (enable != m_drv_enabled) {
+      digitalWrite(m_pinConfig.EN_PIN, !enable);
+      m_drv_enabled = enable;
+    }
+  }
 };
 
 #endif // STEPPER_H

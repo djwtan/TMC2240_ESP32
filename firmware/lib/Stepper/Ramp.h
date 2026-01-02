@@ -58,18 +58,18 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
   float x_decel_half = x_decel / 2.0;
 
   // Update acceleration with jerk
-  // | RampUp | RampDown | Constant | -RampUp | -RampDown |
+  // RampUp | RampDown | Constant | -RampUp | -RampDown
   if (dx <= x_decel) {
-    // if (dx <= x_decel_half) {
+
     if (v <= (v_max / 2)) {
+      // if (dx <= x_decel_half) {
       // 5th
       a_now += jd * dt;
     } else {
       // 4rd
       a_now -= jd * dt;
     }
-
-    if (a_now > 0.0) a_now = 0.0;
+    if (a_now > 0.0) a_now = 0;
 
   } else if (v < v_max) {
     if (v < v_max / 2.0) {
@@ -97,6 +97,8 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
 
   res.v_now = v_now;
   res.a_now = a_now;
+
+  Serial.println(a_now);
 
   return res;
 }

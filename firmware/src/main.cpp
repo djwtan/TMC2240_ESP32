@@ -77,11 +77,12 @@ void loop() {
   // Serial.print("/");
   // Serial.println(tarPos);
 
+  delay(10);
   if (curPos == tarPos) {
-    delay(5000);
+    delay(1000);
     Serial.println("Set position");
     steppers[0]->SetTargetPosition(3600);
-    steppers[0]->SetTargetRPM(360);
+    steppers[0]->SetTargetRPM(720);
     // Serial.println(steppers[0]->HandleRead(S_Reg::TARGET_RPM));
     steppers[0]->SetAccelerationTime(1000);
     steppers[0]->SetDeccelerationTime(1000);

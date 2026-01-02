@@ -184,11 +184,11 @@ private:
 
   // Driver Settings
   struct DriverSettings {
-    uint8_t  microstep      = 4; // ---------- motion
+    uint16_t microstep      = 32; // ---------- motion
     uint8_t  fullstepPerRev = 200;
     uint32_t unitsPerRev    = 360;
-    uint8_t  runningCurrent = 31; // --------- current
-    uint8_t  holdingCurrent = 16;
+    uint8_t  runningCurrent = 12; // --------- current
+    uint8_t  holdingCurrent = 8;
     bool     sg_enable      = false; // ------ stall detection
     float    sg_threshLow   = 40.0f;
     float    sg_threshHigh  = 150.0f;

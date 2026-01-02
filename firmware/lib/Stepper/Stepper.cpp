@@ -335,6 +335,7 @@ bool Stepper::SetMicrostepping(uint32_t userInput) {
   case 32:  drvS.microstep = 32; break;
   case 64:  drvS.microstep = 64; break;
   case 128: drvS.microstep = 128; break;
+  case 256: drvS.microstep = 256; break;
   default:  return false;
   }
 
@@ -503,6 +504,7 @@ void Stepper::task_ComputeRampParam(void *parameters) {
   TickType_t    last_tick = xTaskGetTickCount();
   unsigned long tick_freq;
   for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(10));
     // Sanity check
     if (self->m_timerMux == nullptr) { continue; }
     if (self->m_hwtimer == nullptr) { continue; }
@@ -524,8 +526,6 @@ void Stepper::task_ComputeRampParam(void *parameters) {
       timerAlarmWrite(self->m_hwtimer, 5000000, true);
     }
     portEXIT_CRITICAL(self->m_timerMux);
-
-    vTaskDelay(1);
   }
 }
 
@@ -536,6 +536,7 @@ void Stepper::task_UpdateStatus(void *parameters) {
   uint32_t sg_data;
 
   for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(10));
     self->ReadRegister(TMC2240_Registers::SG_RESULT_IND, &sg_data, &status);
 
     // Power Error
@@ -560,8 +561,6 @@ void Stepper::task_UpdateStatus(void *parameters) {
     }
 
     self->UpdateStatus(Status::IDLE);
-
-    vTaskDelay(1);
   }
 }
 

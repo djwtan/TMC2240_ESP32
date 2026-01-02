@@ -2,21 +2,18 @@
 
 TMC2240_SPI::TMC2240_SPI() : spiSettings(10000000, MSBFIRST, SPI_MODE3) {}
 
-void TMC2240_SPI::SPIExchange(uint8_t *data, const int size, uint8_t pin_num) {
+void TMC2240_SPI::SPIExchange(uint8_t *data, size_t size, uint8_t csPin) {
+  configASSERT(mutex);
 
-  digitalWrite(pin_num, LOW);
+  xSemaphoreTake(mutex, portMAX_DELAY);
 
-  delayMicroseconds(1);
   SPI.beginTransaction(spiSettings);
-  delayMicroseconds(1);
+  digitalWrite(csPin, LOW);
 
   SPI.transfer(data, size);
-  delayMicroseconds(1);
 
+  digitalWrite(csPin, HIGH);
   SPI.endTransaction();
-  delayMicroseconds(1);
 
-  digitalWrite(pin_num, HIGH);
-
-  delayMicroseconds(1);
+  xSemaphoreGive(mutex);
 }

@@ -1,8 +1,7 @@
 #ifndef STEPPER_H
 #define STEPPER_H
 
-#include "Ramp_SCurve.h"
-#include "Ramp_Trapezoidal.h"
+#include "Ramp.h"
 #include "Registers.h"
 #include "TMC2240_Registers.h"
 #include "TMC2240_SPI.h"

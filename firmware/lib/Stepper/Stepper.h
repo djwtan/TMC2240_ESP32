@@ -22,6 +22,18 @@ enum class Status {
   NOT_INIT  = 5,
 };
 
+static inline String getStatus(Status sts) {
+  switch (sts) {
+  case Status::STALLED:   return "STALLED";
+  case Status::OVERSPEED: return "OVERSPEED";
+  case Status::IDLE:      return "IDLE";
+  case Status::RUNNING:   return "RUNNING";
+  case Status::POWER_ERR: return "POWER_ERR";
+  case Status::NOT_INIT:  return "NOT_INIT";
+  default:                return "N/A";
+  }
+}
+
 enum class HomingMethod {
   IMMEDIATE = 0,
   SENSOR    = 1,
@@ -160,13 +172,14 @@ private:
   // Motion Settings
   struct MotionSettings {
     OpMode          opMode       = OpMode::POSITION;
-    PositioningMode posMode      = PositioningMode::ABSOLUTE;
-    bool            useSCurve    = false;
+    PositioningMode posMode      = PositioningMode::RELATIVE;
+    bool            useSCurve    = true;
     int32_t         targetPulse  = 0;
     float           targetSpeed  = 0.0f;
     float           acceleration = 0.0f;
     float           deceleration = 0.0f;
-    float           jerk         = 0.0f;
+    float           jerkAcel     = 0.0f;
+    float           jerkDecel    = 0.0f;
   };
 
   // Driver Settings
@@ -209,8 +222,9 @@ private:
   bool m_drv_enabled = false; // (f) enable pin tracker
 
   // Ramp
-  volatile int32_t m_currentPulse = 0;
-  float            m_currentSpeed = 0.0f;
+  volatile int32_t m_currentPulse        = 0;
+  float            m_currentSpeed        = 0.0f;
+  float            m_sCurve_currentAccel = 0.0f;
 
   /* ================================================================================== */
   /*                                        Tasks                                       */

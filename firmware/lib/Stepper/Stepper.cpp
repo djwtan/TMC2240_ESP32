@@ -75,14 +75,14 @@ bool Stepper::Initialize() {
   if (!m_tasksStarted) {
     xTaskCreate(Stepper::task_ComputeRampParam, // function name
                 "Compute Ramp",                 // task name
-                200,                            // stack size
+                2048,                           // stack size
                 this,                           // task parameters
                 1,                              // task priority
                 NULL                            // task handle
     );
     xTaskCreate(Stepper::task_UpdateStatus, // function name
                 "Update Status",            // task name
-                200,                        // stack size
+                2048,                       // stack size
                 this,                       // task parameters
                 1,                          // task priority
                 NULL                        // task handle
@@ -296,6 +296,7 @@ bool Stepper::SetAccelerationTime(uint32_t millis) {
   float time_s = millis / 1000;
 
   motionS.acceleration = motionS.targetSpeed / time_s;
+  motionS.jerkAcel     = motionS.acceleration;
 
   return true;
 }
@@ -306,6 +307,7 @@ bool Stepper::SetDeccelerationTime(uint32_t millis) {
   float time_s = millis / 1000;
 
   motionS.deceleration = motionS.targetSpeed / time_s;
+  motionS.jerkDecel    = motionS.deceleration;
 
   return true;
 }
@@ -449,7 +451,9 @@ void Stepper::Step() {
 unsigned long Stepper::UpdateTickPeriod(TickType_t dt_ticks) {
   // In Position
   if (m_currentPulse == motionS.targetPulse) {
-    m_inPosition = true;
+    m_inPosition          = true;
+    m_sCurve_currentAccel = 0.0;
+    m_currentSpeed        = 0.0;
     return 0;
   }
 
@@ -457,25 +461,36 @@ unsigned long Stepper::UpdateTickPeriod(TickType_t dt_ticks) {
   m_inPosition = false;
 
   // Stalled
-  if (m_isStalled) { return 0; }
+  if (m_isStalled) {
+    m_sCurve_currentAccel = 0.0;
+    m_currentSpeed        = 0.0;
+    return 0;
+  }
 
   // Compute direction
   m_direction = motionS.targetPulse > m_currentPulse;
   digitalWrite(m_pinConfig.DIR_PIN, m_direction);
 
-  long dt_us      = pdTICKS_TO_MS(dt_ticks);
-  long pulse_rate = 0;
+  long dt_ms = pdTICKS_TO_MS(dt_ticks);
 
   // Compute pulse rate
-  pulse_rate = motionS.useSCurve
-                   ? computePulseRate_scurve(m_currentPulse, motionS.targetPulse, m_currentSpeed,
-                                             motionS.targetSpeed, motionS.acceleration,
-                                             motionS.deceleration, motionS.jerk, dt_us)
-                   : computePulseRate_trapezoidal(
-                         m_currentPulse, motionS.targetPulse, m_currentSpeed, motionS.targetSpeed,
-                         motionS.acceleration, motionS.deceleration, dt_us);
+  if (motionS.useSCurve) {
+    SCurveResults res =
+        computePulseRate_scurve(m_currentPulse, motionS.targetPulse, m_currentSpeed,
+                                motionS.targetSpeed, motionS.acceleration, motionS.deceleration,
+                                motionS.jerkAcel, motionS.jerkDecel, m_sCurve_currentAccel, dt_ms);
 
-  return 1000000 / pulse_rate;
+    m_currentSpeed        = res.v_now;
+    m_sCurve_currentAccel = res.a_now;
+
+  } else {
+    m_currentSpeed = computePulseRate_trapezoidal(
+        m_currentPulse, motionS.targetPulse, m_currentSpeed, motionS.targetSpeed,
+        motionS.acceleration, motionS.deceleration, dt_ms);
+  }
+
+  if (m_currentSpeed == 0.0) { return 0; }
+  return 1000000 / m_currentSpeed;
 }
 
 /* ================================================================================== */
@@ -599,11 +614,13 @@ void Stepper::ReadRegister(const uint8_t address, uint32_t *data, uint8_t *statu
 /*                                        Maths                                       */
 /* ================================================================================== */
 int32_t Stepper::unitToPulse(int32_t unit) {
-  return (unit / drvS.unitsPerRev) * (drvS.microstep * drvS.fullstepPerRev);
+  return (int32_t)((int64_t)unit * (int64_t)drvS.microstep * (int64_t)drvS.fullstepPerRev /
+                   (int64_t)drvS.unitsPerRev);
 }
 
 int32_t Stepper::pulseToUnit(int32_t pulse) {
-  return (pulse * drvS.unitsPerRev) / (drvS.microstep * drvS.fullstepPerRev);
+  return (int32_t)((int64_t)pulse * (int64_t)drvS.unitsPerRev /
+                   ((int64_t)drvS.microstep * (int64_t)drvS.fullstepPerRev));
 }
 
 float Stepper::rpmToSpeed(uint32_t rpm) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Arduino.h>
 #include <algorithm>
 #include <cstdint>
 #include <math.h>
@@ -48,6 +49,24 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
   // Convert dt to seconds
   float dt = dt_ms * 1e-3f;
 
+  Serial.print(x);
+  Serial.print(" | ");
+  Serial.print(x_final);
+  Serial.print(" | ");
+  Serial.print(v);
+  Serial.print(" | ");
+  Serial.print(v_max);
+  Serial.print(" | ");
+  Serial.print(a_max);
+  Serial.print(" | ");
+  Serial.print(d_max);
+  Serial.print(" | ");
+  Serial.print(ja);
+  Serial.print(" | ");
+  Serial.print(jd);
+  Serial.print(" | ");
+  Serial.print(a_now);
+  Serial.print(" | ");
   // Distance remaining
   uint32_t dx = abs(x_final - x);
 
@@ -62,9 +81,11 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
     // if (dx <= x_decel_half) {
     if (v <= (v_max / 2)) {
       // 5th
+      Serial.println("5");
       a_now += jd * dt;
     } else {
       // 4rd
+      Serial.println("4");
       a_now -= jd * dt;
     }
 
@@ -73,13 +94,16 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
   } else if (v < v_max) {
     if (v < v_max / 2.0) {
       // 1st
+      Serial.println("1");
       a_now += ja * dt;
     } else {
       // 2nd
+      Serial.println("2");
       a_now -= ja * dt;
     }
   } else {
     // 3rd
+    Serial.println("3");
     a_now = 0;
   }
 

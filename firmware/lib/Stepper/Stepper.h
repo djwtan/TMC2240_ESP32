@@ -137,7 +137,7 @@ public:
 
   /* =========================== Ramp Generation & Stepping =========================== */
   /* Steps pin & handles current position */
-  void Run();
+  void Step();
 
   /* Inverse time move (?) */
   void MoveInverseTime(); // TODO

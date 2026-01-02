@@ -469,15 +469,6 @@ uint32_t Stepper::RequestHoming(uint32_t userInput) {
 }
 
 /* ---------------------------------------------------------------------------------- */
-void Stepper::Run() {
-  if (currentPOS != targetPOS) {
-    digitalWrite(m_pinConfig.STEP_PIN, _step);
-    _step = !_step;
-    currentPOS += (direction ? 1 : -1);
-  }
-}
-
-/* ---------------------------------------------------------------------------------- */
 void Stepper::MoveInverseTime() {
   /*
   Args: Number of steps, time taken
@@ -509,71 +500,49 @@ bool Stepper::IsStalled(uint32_t sg_data, uint8_t status) {
 bool Stepper::IsRunning() { return (currentPOS != targetPOS && !m_is_stalled); }
 
 /* ---------------------------------------------------------------------------------- */
+void Stepper::Step() {
+  if (currentPOS == targetPOS) { return; }
+
+  digitalWrite(m_pinConfig.STEP_PIN, _step);
+  _step = !_step;
+  currentPOS += (direction ? 1 : -1);
+}
+
+/* ---------------------------------------------------------------------------------- */
 unsigned long Stepper::UpdateTickPeriod(TickType_t dt_ticks) {
   // In Position
   if (currentPOS == targetPOS) {
     m_in_position = true;
     return 0;
-  } else
-    m_in_position = false;
-
-  // Homing
-  // todo: separate
-  if (runHoming) {
-    switch (homingMethod) {
-    case HomingMethod::IMMEDIATE:
-      currentPOS = 0;
-      targetPOS  = 0;
-      homed      = true;
-      runHoming  = false;
-      break;
-
-    case HomingMethod::TORQUE: {
-      if (m_is_stalled) {
-        currentPOS = 0;
-        targetPOS  = 0;
-        homed      = true;
-        runHoming  = false;
-      }
-      break;
-    }
-
-    case HomingMethod::SENSOR:
-      if (digitalRead(m_pinConfig.HOME_SENSOR_PIN) == sensorHomeValue) {
-        currentPOS = 0;
-        targetPOS  = 0;
-        homed      = true;
-        runHoming  = false;
-      }
-      break;
-    }
   }
+
+  // Update in position flag
+  m_in_position = false;
 
   // Stalled
   if (m_is_stalled) { return 0; }
 
-  /* ==================================== direction =================================== */
+  // Compute direction
   direction = target_pulse > current_pulse;
   digitalWrite(m_pinConfig.DIR_PIN, direction);
 
   long dt_us      = pdTICKS_TO_MS(dt_ticks);
   long pulse_rate = 0;
 
-  if (use_s_curve) {
-    pulse_rate = computePulseRate_scurve(current_pulse, target_pulse, current_speed, target_speed,
-                                         acceleration, deceleration, jerk, dt_us);
-  } else {
-    pulse_rate = computePulseRate_trapezoidal(current_pulse, target_pulse, current_speed,
-                                              target_speed, acceleration, deceleration, dt_us);
-  }
+  // Compute pulse rate
+  pulse_rate = use_s_curve
+                   ? computePulseRate_scurve(current_pulse, target_pulse, current_speed,
+                                             target_speed, acceleration, deceleration, jerk, dt_us)
+                   : computePulseRate_trapezoidal(current_pulse, target_pulse, current_speed,
+                                                  target_speed, acceleration, deceleration, dt_us);
 
-  /* =================================== step delay =================================== */
   return 1000000 / pulse_rate;
 }
 
 /* ================================================================================== */
 /*                                        Tasks                                       */
 /* ================================================================================== */
+
 void Stepper::task_ComputeRampParam(void *parameters) {
   auto *self = static_cast<Stepper *>(parameters);
 
@@ -606,6 +575,7 @@ void Stepper::task_ComputeRampParam(void *parameters) {
     vTaskDelay(1);
   }
 }
+
 /* ---------------------------------------------------------------------------------- */
 void Stepper::task_UpdateStatus(void *parameters) {
   auto    *self = static_cast<Stepper *>(parameters);

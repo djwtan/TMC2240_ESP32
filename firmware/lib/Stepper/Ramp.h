@@ -5,6 +5,19 @@
 #include <cstdint>
 #include <math.h>
 
+struct MotionParameters {
+  float targetSpeed;
+  float acceleration;
+  float deceleration;
+  float jerkAcel;
+  float jerkDecel;
+};
+
+static inline MotionParameters computeParameters_trapezoidal(int32_t x, int32_t x_final, float v,
+                                                             float v_max, float a, float d) {
+  // hello
+}
+
 static inline float computePulseRate_trapezoidal(int32_t x, int32_t x_final, float v, float v_max,
                                                  float a, float d, long dt_ms) {
 
@@ -35,6 +48,16 @@ static inline float computePulseRate_trapezoidal(int32_t x, int32_t x_final, flo
   return v_now;
 }
 
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------- */
+
+static inline MotionParameters computeParameters_scurve(int32_t x, int32_t x_final, float v,
+                                                        float v_max, float a_max, float d_max,
+                                                        float ja, float jd, float a_now) {
+  // hello
+}
+
 struct SCurveResults {
   float v_now;
   float a_now;
@@ -53,12 +76,16 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
   uint32_t dx = abs(x_final - x);
 
   // Distance to start decelerating
-  float t_j          = d_max / jd;
-  float x_decel      = 1.9 * (v_max * v_max) / (2.0f * d_max) + (d_max * d_max) / (6.0f * jd * jd);
+  float t_j = d_max / jd;
+  // float x_decel      = 1.9 * (v_max * v_max) / (2.0f * d_max) + (d_max * d_max) / (6.0f * jd *
+  // jd);
+  float x_decel      = 1.9 * (v * v) / (2.0f * d_max) + (d_max * d_max) / (6.0f * jd * jd);
   float x_decel_half = x_decel / 2.0;
 
   // Update acceleration with jerk
   // RampUp | RampDown | Constant | -RampUp | -RampDown
+  /* ---------------------------------------------------------------------------------- */
+  // !Doesn't work for incomplete profiles
   if (dx <= x_decel) {
 
     if (v <= (v_max / 2)) {
@@ -84,6 +111,7 @@ static inline SCurveResults computePulseRate_scurve(int32_t x, int32_t x_final, 
     a_now = 0;
   }
 
+  /* ---------------------------------------------------------------------------------- */
   // Bound
   a_now = std::min(a_max, a_now);
   a_now = std::max(-d_max, a_now);

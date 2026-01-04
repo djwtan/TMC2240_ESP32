@@ -1,4 +1,4 @@
-from comm import *
+from ttSb import *
 import serial
 import threading
 
@@ -6,7 +6,7 @@ comm_port = serial.Serial("COM22", 115200, timeout=1, dsrdtr=None)
 comm_lock = threading.Lock()
 device_id = 0x01
 
-stepper_controller = ESP32_TMC2240_API(comm_port, comm_lock, device_id)
+stepper_controller = ttSbAPI(comm_port, comm_lock, device_id)
 
 
 def init_driver():
@@ -28,7 +28,7 @@ def init_driver():
     print(response)
     response = stepper_controller.write(Register.RUNNING_CURRENT, 31)  # 1-31
     print(response)
-    response = stepper_controller.write(Register.HOLDING_CURRENT_PERCENTAGE, 50)  # 0-100
+    response = stepper_controller.write(Register.HOLDING_CURRENT, 50)  # 0-100
     print(response)
     # Homing can be performed in both position and velocity mode.
     response = stepper_controller.write(Register.OPERATION_MODE, OpMode.POSITION)  # position mode

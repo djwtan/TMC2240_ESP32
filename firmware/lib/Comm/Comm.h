@@ -66,6 +66,13 @@ private:
 
   // Response
   void pri_execCommand(message msg);
+
+  /* ================================================================================== */
+  /*                                        Task                                        */
+  /* ================================================================================== */
+  bool m_tasksStarted = false;
+  /* Constantly reads serial */
+  static void task_serialRead(void *parameters);
 };
 
 #endif
